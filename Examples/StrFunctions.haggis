@@ -1,0 +1,6 @@
+# Demo of string functions by James G.
+
+SEND "Lower() is: " & Lower("TO LOWER CASE ") TO DISPLAY
+SEND "Upper() is: " & Upper("to higher case") TO DISPLAY
+SEND "Trim() is: " & Trim(" a  b  c  d ") TO DISPLAY
+SEND "Title() is: " & Title("python is pretty cool, but this interpreter is done in c sharp") TO DISPLAY
