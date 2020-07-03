@@ -138,13 +138,17 @@ namespace HaggisInterpreter2
             }
             else if (op.Equals("&"))
             {
-
                 if (l.Type == ValueType.STRING || r.Type == ValueType.STRING)
                     return new Value(l.ToString() + r.ToString());
 
                 // You cannot append l char, need to convert to string (C# Does that automatically for us)
                 if (l.Type == ValueType.CHARACTER || r.Type == ValueType.CHARACTER)
-                    return new Value(l.CHARACTER + r.STRING);
+                    if (l.Type == ValueType.CHARACTER)
+                        return new Value(l.CHARACTER + r.ToString());
+                    else if (r.Type == ValueType.CHARACTER)
+                        return new Value(l.ToString() + r.CHARACTER);
+                    else
+                        throw new Exception($"PROBLEM: Issue with managing characters on left or right hand side ({l},{r})");
             }
             else if (op.Equals("=="))
             {

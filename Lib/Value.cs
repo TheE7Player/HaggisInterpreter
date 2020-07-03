@@ -33,6 +33,9 @@ namespace HaggisInterpreter2
             #endregion
 
             #region Constructors
+
+            public Value(Value val) : this() { this = val; }
+
             public Value(double val) : this()
             {
                 this.Type = ValueType.REAL;

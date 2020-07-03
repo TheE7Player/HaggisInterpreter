@@ -23,11 +23,11 @@ namespace HaggisInterpreter2Run
                 if (!Path.GetExtension(file).Equals(".haggis"))
                     return;
 
-                //filePasses.Add(Path.GetFileName(file), false);
+                filePasses.Add(Path.GetFileName(file), false);
 
                 string[] fileFull = File.ReadAllLines(file);
 
-                //Interpreter.FLAGS my_flags = new Interpreter.FLAGS();
+                Interpreter.FLAGS my_flags = new Interpreter.FLAGS();
 
                 var flag_target = "#<DEBUG:";
 
@@ -56,7 +56,7 @@ namespace HaggisInterpreter2Run
 
                             if (val.Equals("PRINT_LINE_NUMBER"))
                             {
-                                //my_flags.DebugSendRequests = !my_flags.DebugSendRequests;
+                                my_flags.DebugSendRequests = !my_flags.DebugSendRequests;
                                 //var result = (my_flags.DebugSendRequests) ? "ON" : "OFF";
                                 //Console.WriteLine($"PRINT_LINE_NUMBER IS {result}");
                                 ignore_count++;
@@ -68,10 +68,10 @@ namespace HaggisInterpreter2Run
                                 var key = val.Substring(1, val.IndexOf(']') - 1);
                                 var input = val.Substring(val.IndexOf('-') + 1);
 
-                                //if (Object.ReferenceEquals(my_flags.Inputs, null))
-                                //    my_flags.Inputs = new Dictionary<string, string>(1);
+                                if (Object.ReferenceEquals(my_flags.Inputs, null))
+                                   my_flags.Inputs = new Dictionary<string, string>(1);
 
-                                //my_flags.Inputs.Add(key, input);
+                                my_flags.Inputs.Add(key, input);
 
                                 ignore_count++;
                                 continue;
@@ -84,20 +84,17 @@ namespace HaggisInterpreter2Run
                     ignore_count = (ignore_count > 0) ? ignore_count -= 1 : 0;
                 }
 
-
-
-
                 Console.WriteLine($"\n== RUNNING: {Path.GetFileNameWithoutExtension(file)} ==\n");
 
-                HaggisInterpreter2.Interpreter basic = new HaggisInterpreter2.Interpreter(File.ReadAllLines(file));
+                HaggisInterpreter2.Interpreter basic = new HaggisInterpreter2.Interpreter(File.ReadAllLines(file), my_flags);
                 try
                 {
                     basic.Execute();
-                    //filePasses[Path.GetFileName(file)] = true;
+                    filePasses[Path.GetFileName(file)] = true;
                 }
                 catch (Exception e)
                 {
-                    //filePasses[Path.GetFileName(file)] = false;
+                    filePasses[Path.GetFileName(file)] = false;
                     Console.WriteLine("ERROR:");
 
                     //int line = basic.lineMarker.Line;
@@ -116,6 +113,7 @@ namespace HaggisInterpreter2Run
                     //Console.WriteLine(sb.ToString());
                     //sb = null;
 
+                    
                     var lineNumber = new System.Diagnostics.StackTrace(e, true).GetFrame(1).GetFileLineNumber();
                     var fileFault = new System.Diagnostics.StackTrace(e, true).GetFrame(1).GetFileName();
                     Console.WriteLine($"{Path.GetFileNameWithoutExtension(fileFault)} @ {lineNumber}\n({e.Message})");
