@@ -27,6 +27,10 @@ This project that I am developing will act if its an actual language that could 
 
 
 
+You can view what has changed, added or removed on each build I commit, [here](https://github.com/TheE7Player/HaggisInterpreter/blob/master/updates.md).
+
+
+
 The current scripts runs without any errors:
 
 > There is more scripts as I started the project initially from another forked C# interpreter, had issues after a few days - So I did it by scratch to simplify things.
@@ -37,9 +41,9 @@ The current scripts runs without any errors:
 | :------------------: | :-------------------: |
 | CtoFCalcuator.haggis |           ❌           |
 | If statement.haggis  |           ❌           |
-|     Input.haggis     |           ❌           |
-|  Manual Set.haggis   |           ❌           |
-| Normal Test 1.haggis |           ✔️           |
+|     Input.haggis     | ✔️ ( **Since v0.2** )  |
+|  Manual Set.haggis   | ✔️ ( **Since v0.2** )  |
+| Normal Test 1.haggis | ✔️ ( **Since v0.1** )  |
 |  RepeatLoop.haggis   |           ❌           |
 | StrFunctions.haggis  |           ❌           |
 |   WhileLoop.haggis   |           ❌           |
