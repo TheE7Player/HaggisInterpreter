@@ -13,11 +13,59 @@ namespace HaggisInterpreter2Run
     {
         static void Main(string[] args)
         {
-            string folder = @"C:\Users\Owner\Desktop\Haggis";
-
+            bool toExit = false;
             Dictionary<string, bool> filePasses = new Dictionary<string, bool>(1);
 
-            foreach (var file in Directory.GetFiles(folder))
+            List<string> files = new List<string>(1);
+
+            // Invalid rule: First param has to be folder, if folder futher on, error!
+            FileAttributes attr;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if(!Directory.Exists(args[i]) && !args[i].Contains(".haggis"))
+                {
+                    Console.WriteLine($"ERROR: Unknown Directory has been entered... {args[i]}");
+                }
+
+                try
+                {
+                    attr = File.GetAttributes(args[i]);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"ERROR: {e.Message}");
+                    toExit = true;
+                    break;
+                }
+
+                if(attr.HasFlag(FileAttributes.Directory))
+                {
+                    if(args.Length == 1)
+                    {
+                        files = Directory.GetFiles(args[i]).Where(x => x.ToLower().EndsWith(".haggis")).ToList<string>();
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"ERROR: You cannot pass in a folder with other files!\nPassing a folder should only be 1 param!");
+                        toExit = true;
+                        break;
+                    }               
+                }
+                else
+                {
+                    files.Add(args[i]);
+                }
+            }
+
+            if(toExit)
+            {
+                Console.WriteLine("PRESSING ANY KEY WILL EXIT THE APPLICATION");
+                Console.ReadLine();
+                return;
+            }
+
+            foreach (var file in files)
             {
 
                 if (!Path.GetExtension(file).Equals(".haggis"))
@@ -97,26 +145,47 @@ namespace HaggisInterpreter2Run
                     filePasses[Path.GetFileName(file)] = false;
                     Console.WriteLine("ERROR:");
 
-                    //int line = basic.lineMarker.Line;
-                    //int col = basic.lineMarker.Column;
+                    int line = (Interpreter.executionHandled) ? basic.errorArea[0]: Interpreter.Line;
+                    int col = (Interpreter.executionHandled) ? basic.errorArea[1] : Interpreter.Column;
 
-                    //var sb = new StringBuilder(fileFull[line - 1].Length);
-                    //Console.WriteLine($"Line {line} : Col {col} - {e.Message}\n");
+                    var sb = new StringBuilder(fileFull[line - 1].Length);
+                    if(Interpreter.executionHandled)
+                        Console.WriteLine($"Line {line} : Col {col} - {e.Message}\n");
+                    else
+                        Console.WriteLine($"UNHANDLED EXCEPTION AT LINE {line}: {e.Message}");
 
-                    //for (int i = 0; i < col; i++)
-                    //{
-                    //    sb.Append(" ");
-                    //}
-                    //sb.Append("^");
+                    for (int i = 0; i < col; i++)
+                    {
+                        sb.Append(" ");
+                    }
+                    sb.Append('^', (!Interpreter.executionHandled) ? 1 : basic.errorArea[2]);
 
-                    //Console.WriteLine(fileFull[line - 1]);
-                    //Console.WriteLine(sb.ToString());
-                    //sb = null;
+                    Console.WriteLine(fileFull[line]);
+                    Console.WriteLine(sb.ToString());
+                    sb = null;
 
-                    
+                    Console.WriteLine("\n ============================ \n");
                     var lineNumber = new System.Diagnostics.StackTrace(e, true).GetFrame(1).GetFileLineNumber();
                     var fileFault = new System.Diagnostics.StackTrace(e, true).GetFrame(1).GetFileName();
-                    Console.WriteLine($"{Path.GetFileNameWithoutExtension(fileFault)} @ {lineNumber}\n({e.Message})");
+                    Console.WriteLine($"INTERAL INFORMATION:\n{Path.GetFileNameWithoutExtension(fileFault)} @ {lineNumber}\n({e.Message})");
+
+                    if (basic.variables.Count == 0)
+                        Console.WriteLine("\nHEAP ON EXECUTION: EMPTY");
+                    else
+                    {
+                        Console.WriteLine("\nHEAP ON EXECUTION:");
+                        foreach (var item in basic.variables)
+                        {
+                            Console.WriteLine($"[{item.Key}] {item.Value}");
+                        }
+                    }
+
+                    var _stack = basic.callStack.ToArray();
+                    Console.WriteLine("\nCALLSTACK ON EXECUTION:");
+                    for (int i = _stack.Length; i > 0; i--)
+                    {
+                        Console.WriteLine($"[{i-1}] {_stack[i - 1]}");
+                    }
 
                     fileFault = null;
                 }
