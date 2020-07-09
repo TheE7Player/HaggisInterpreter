@@ -2,7 +2,7 @@
 
 #<DEBUG: [c]-40>
 
-SEND "C to F degrees Calculator! Type in any \'C\' to find what it is in F!" TO DISPLAY
+SEND "C to F degrees Calculator! Type in any 'C' to find what it is in F!" TO DISPLAY
 
 RECEIVE c FROM (REAL) KEYBOARD
 

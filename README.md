@@ -7,7 +7,7 @@ Haggis is a reference language used in SQA Exams from `National 4` up to `Advanc
 This project that I am developing will act if its an actual language that could operate (it isn't)	
 
 You may try out the language as an executable, [here](https://github.com/TheE7Player/HaggisInterpreter/releases).
-> Note: This project is still in developement and doesn't evaulate the language as a whole yet!
+> Note: This project is still in development and doesn't evaluate the language as a whole yet!
 
 ------
 
@@ -33,7 +33,7 @@ The current scripts runs without any errors:
 
 |         File         | Works (Current Build) |
 | :------------------: | :-------------------: |
-| CtoFCalcuator.haggis |           ❌           |
+| CtoFCalcuator.haggis | ✔️ ( **Since v0.4** )  |
 | If statement.haggis  |           ❌           |
 |     Input.haggis     | ✔️ ( **Since v0.2** )  |
 |  Manual Set.haggis   | ✔️ ( **Since v0.2** )  |

@@ -1,18 +1,16 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace HaggisInterpreter2
 {
-    static class Expression
+    internal static class Expression
     {
         private static char[] validOperations = new char[] { '+', '/', '*', '-', '(', ')', '&', '!', '=' };
+
         public enum ExpressionType
         {
             /// <summary>
@@ -27,6 +25,7 @@ namespace HaggisInterpreter2
         }
 
         #region Expression Logic
+
         public static string GetExpression(string[] values, int exprStartIndex)
         {
             exprStartIndex++;
@@ -45,8 +44,8 @@ namespace HaggisInterpreter2
         {
             if (val.ToString().ToCharArray().Any(x => validOperations.Contains(x)))
                 return ExpressionType.EXPRESSION;
-            
-            return ExpressionType.LITERAL;        
+
+            return ExpressionType.LITERAL;
         }
 
         public static string[] Evaluate(string Expression)
@@ -71,7 +70,6 @@ namespace HaggisInterpreter2
                     continue;
                 }
 
-
                 if ((int)iter[i] == 34)
                 {
                     i++;
@@ -86,7 +84,27 @@ namespace HaggisInterpreter2
                 }
                 else
                 {
-                    sb.Append(iter[i]);
+                    //40 = (, 41 == )
+                    if ((int)iter[i] == 40 || (int)iter[i] == 41)
+                    {
+                        if (sb.Length > 0)
+                        {
+                            output.Add(sb.ToString());
+                            sb.Clear();
+
+                            sb.Append(iter[i]);
+                            output.Add(sb.ToString());
+                            sb.Clear();
+                        }
+                        else
+                        {
+                            sb.Append(iter[i]);
+                            output.Add(sb.ToString());
+                            sb.Clear();
+                        }
+                    }
+                    else
+                        sb.Append(iter[i]);
                 }
             }
 
@@ -104,7 +122,7 @@ namespace HaggisInterpreter2
 
         private static Value DoExpr(Value l, string op, Value r)
         {
-           // Value l = ((Value)(Object.ReferenceEquals(forceCompare, null) ? this : forceCompare));
+            // Value l = ((Value)(Object.ReferenceEquals(forceCompare, null) ? this : forceCompare));
 
             if (l.Type != r.Type)
             {
@@ -156,12 +174,16 @@ namespace HaggisInterpreter2
                 {
                     case ValueType.REAL:
                         return new Value(l.REAL == r.REAL ? 1 : 0);
+
                     case ValueType.STRING:
                         return new Value(l.STRING == r.STRING ? 1 : 0);
+
                     case ValueType.BOOLEAN:
                         return new Value(l.BOOLEAN == r.BOOLEAN ? 1 : 0);
+
                     case ValueType.INTEGER:
                         return new Value(l.INT == r.INT ? 1 : 0);
+
                     case ValueType.CHARACTER:
                         return new Value(l.CHARACTER == r.CHARACTER ? 1 : 0);
                 }
@@ -172,12 +194,16 @@ namespace HaggisInterpreter2
                 {
                     case ValueType.REAL:
                         return new Value(l.REAL == r.REAL ? 0 : 1);
+
                     case ValueType.STRING:
                         return new Value(l.STRING == r.STRING ? 0 : 1);
+
                     case ValueType.BOOLEAN:
                         return new Value(l.BOOLEAN == r.BOOLEAN ? 0 : 1);
+
                     case ValueType.INTEGER:
                         return new Value(l.INT == r.INT ? 0 : 1);
+
                     case ValueType.CHARACTER:
                         return new Value(l.CHARACTER == r.CHARACTER ? 0 : 1);
                 }
@@ -234,23 +260,136 @@ namespace HaggisInterpreter2
             throw new Exception("Unknown binary operator.");
         }
 
-        #endregion
+        #endregion Expression Logic
 
         #region Expression Operations
+
+        private static Tuple<Value, string, Value> GetOperands(ref Stack stack, ref Dictionary<string, Value> vals)
+        {
+            var rightOp = stack.Pop();
+            if (vals.ContainsKey(rightOp.ToString()))
+                rightOp = vals[rightOp.ToString()];
+            else if (rightOp.GetType().ToString() != "HaggisInterpreter2.Value")
+                rightOp = new Value(rightOp as string, true);
+
+            var opOper = (string)stack.Pop();
+            var leftOp = stack.Pop();
+            if (vals.ContainsKey(leftOp.ToString()))
+                leftOp = vals[leftOp.ToString()];
+            else if (leftOp.GetType().ToString() != "HaggisInterpreter2.Value")
+                leftOp = new Value(leftOp as string, true);
+
+            return new Tuple<Value, string, Value>((Value)leftOp, opOper, (Value)rightOp);
+        }
+
         public static Value PerformExpression(Dictionary<string, Value> vals, string expression)
-        {      
+        {
             var exp = Evaluate(expression.ToString());
             //Type finalType = exp[0].GetType();
 
             var stack = new Stack(exp.Length + 4);
 
+            bool anyBrackets = exp.Any(x => x.StartsWith("("));
+
+            if (anyBrackets)
+            {
+                //TODO: What if '(' or ')' is in the string/quote?
+                int lBrackets = 0;
+                int rBrackets = 0;
+
+                foreach (var item in exp)
+                {
+                    if (item == "(")
+                    { lBrackets++; continue; }
+
+                    if (item == ")")
+                    { rBrackets++; continue; }
+                }
+
+                if (lBrackets != rBrackets)
+                    throw new Exception($"Missing or Unbalanced Brackets: [(] {lBrackets} [)] {rBrackets}");
+            }
+
             // Populate the stack
-            foreach (var item in exp)
-               stack.Push(item);
+            if (!anyBrackets)
+            {
+                foreach (var item in exp)
+                    stack.Push(item);
+            }
+            else
+            {
+                // We need to deal with this as brackets have to be calculate before hand
+                var queueOp = new Queue();
+                var expr_final = expression;
+                int HighestOrder = 0;
+                int HighestOrderEnd = 0;
+                string newExp = string.Empty;
+                while (true)
+                {
+                    HighestOrder = expr_final.LastIndexOf("(");
+
+                    if (HighestOrder == -1)
+                        break;
+
+                    HighestOrderEnd = expr_final.IndexOf(")", HighestOrder);
+
+                    newExp = expr_final.Substring(HighestOrder + 1, (HighestOrderEnd - HighestOrder) - 1);
+                    queueOp.Enqueue(newExp);
+                    expr_final = expr_final.Replace($"({newExp})", $"`{queueOp.Count - 1}`");
+                    newExp = string.Empty;
+                    HighestOrder = 0;
+                    HighestOrderEnd = 0;
+                }
+
+                queueOp.Enqueue(expr_final);
+                expr_final = null; newExp = null;
+
+                string expr;
+                string[] _exp;
+                var refIndex = new Dictionary<string, Value>(2);
+                var personalStack = new Stack();
+                while (queueOp.Count >= 1)
+                {
+                    expr = queueOp.Dequeue() as string;
+                    _exp = Expression.Evaluate(expr);
+
+                    foreach (var pStack in _exp)
+                    {
+                        if (pStack.Contains("`"))
+                        {
+                            personalStack.Push(refIndex[pStack]);
+                        }
+                        else
+                            personalStack.Push(pStack);
+                    }
+
+                    var _e = GetOperands(ref personalStack, ref vals);
+
+                    // For the best results, convert INT to Double
+                    Value lNum = _e.Item1;
+                    Value rNum = _e.Item3;
+
+                    if (lNum.Type == ValueType.INTEGER)
+                        lNum = lNum.Convert(ValueType.REAL);
+
+                    if (rNum.Type == ValueType.INTEGER)
+                        rNum = rNum.Convert(ValueType.REAL);
+
+                    Value _e_result = DoExpr(lNum, _e.Item2, rNum);
+
+                    if (queueOp.Count == 0)
+                    {
+                        refIndex = null; personalStack = null; _exp = null; expr = null;
+                        return _e_result;
+                    }
+
+                    refIndex.Add($"`{refIndex.Count}`", _e_result);
+                }
+            }
 
             bool runCycle = false;
 
-            while(stack.Count > 0)
+            while (stack.Count > 0)
             {
                 if (stack.Count == 1)
                 {
@@ -269,21 +408,9 @@ namespace HaggisInterpreter2
                         continue;
                     }
                 }
-                
-                var rightOp = stack.Pop();
-                if (vals.ContainsKey(rightOp.ToString()))
-                    rightOp = vals[rightOp.ToString()];
-                else if( rightOp.GetType().ToString() != "HaggisInterpreter2.Value")
-                    rightOp = new Value(rightOp as string, true);
 
-                var opOper = (string)stack.Pop();
-                var leftOp = stack.Pop();
-                if (vals.ContainsKey(leftOp.ToString()))
-                    leftOp = vals[leftOp.ToString()];
-                else if (leftOp.GetType().ToString() != "HaggisInterpreter2.Value")
-                    leftOp = new Value(leftOp as string, true);
-
-                var eval = DoExpr((Value)leftOp, opOper, (Value)rightOp);
+                var operands = GetOperands(ref stack, ref vals);
+                var eval = DoExpr(operands.Item1, operands.Item2, operands.Item3);
 
                 stack.Push(eval);
                 runCycle = true;
@@ -292,6 +419,6 @@ namespace HaggisInterpreter2
             return (Value)stack.Pop();
         }
 
-        #endregion
+        #endregion Expression Operations
     }
 }

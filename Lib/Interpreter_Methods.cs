@@ -256,7 +256,7 @@ namespace HaggisInterpreter2
             //[lastIndex] KEYBOARD
             string[] ex = Expression.Evaluate(express);
             string varName = ex[1];
-            string varType = ex[3].Substring(1, ex[3].LastIndexOf(')') - 1);
+            string varType = ex[4];
 
             if (!ex[2].Equals("FROM"))
             {

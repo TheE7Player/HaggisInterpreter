@@ -46,7 +46,7 @@ Current test scripts that work with this build:
 
 ------
 
-## Build 0.3 (--- July 2020)
+## Build 0.3 (8th July 2020)
 
 ### "A more intelligent mind"
 
@@ -60,7 +60,7 @@ Current test scripts that work with this build:
     - Handled Exception: The error happens in the script itself (Safe)
     - Unhandled Exception: Unexcepted error happened from attempting to evaluate an expression (Non-Safe)
 
-Here is an example of one:
+Here is an example of one (Cleaned up):
 
 ```
 == RUNNING: Manual Set ==
@@ -105,3 +105,18 @@ Current test scripts that work with this build:
 - Normal Test 1.haggis
 - Input.haggis
 - Manual Set.haggis
+
+## Build 0.4 (9th July 2020)
+
+### "Brackets Galore!"
+
+- Added Title to the Console and show message if running without any parameters
+- Added ability to apply Brackets, based on `Highest Order`
+  - This means it can perform `BOMDAS` / `PEMDAS` calculations
+
+Current test scripts that work with this build:
+
+- Normal Test 1.haggis
+- Input.haggis
+- Manual Set.haggis
+- CtoFCalcuator.haggis

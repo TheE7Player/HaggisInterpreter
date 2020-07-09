@@ -11,8 +11,17 @@ namespace HaggisInterpreter2Run
 {
     class Program
     {
+        private static string build = "0.4";
+
+        private static void Title(string file = "")
+        {
+            Console.Title = (string.IsNullOrEmpty(file)) ? $"HAGGIS INTERPRETER {build}" : $"HAGGIS INTERPRETER {build}: {file} ";
+        }
+
         static void Main(string[] args)
         {
+            Title();
+
             bool toExit = false;
             Dictionary<string, bool> filePasses = new Dictionary<string, bool>(1);
 
@@ -69,7 +78,10 @@ namespace HaggisInterpreter2Run
             {
 
                 if (!Path.GetExtension(file).Equals(".haggis"))
+                {
+                    Console.WriteLine("Sorry, only .haggis files are able to run in this interpreter");
                     return;
+                }
 
                 filePasses.Add(Path.GetFileName(file), false);
 
@@ -137,6 +149,7 @@ namespace HaggisInterpreter2Run
                 HaggisInterpreter2.Interpreter basic = new HaggisInterpreter2.Interpreter(File.ReadAllLines(file), my_flags);
                 try
                 {
+                    Title(Path.GetFileName(file));
                     basic.Execute();
                     filePasses[Path.GetFileName(file)] = true;
                 }
@@ -193,6 +206,7 @@ namespace HaggisInterpreter2Run
                 Console.WriteLine($"\n== Finished: {Path.GetFileNameWithoutExtension(file)} ==\n");
             }
 
+            if(files.Count > 0) { 
             Console.WriteLine("OK");
             Console.WriteLine();
 
@@ -207,6 +221,14 @@ namespace HaggisInterpreter2Run
                 var _out = (f.Value) ? "PASS" : "FAIL";
                 Console.Write($"{_out}\n");
                 Console.ForegroundColor = ConsoleColor.White;
+            }}
+            else
+            {
+                Console.WriteLine("Haggis Interpreter written in C# by TheE7Player");
+                Console.WriteLine(@"https://www.github.com/TheE7Player/HaggisInterpreter");
+
+                Console.WriteLine();
+                Console.WriteLine("You started this application without any parameters. Please pass in a folder or files to run this evaluator\n~ Thank you.");
             }
             Console.Read();
         }
