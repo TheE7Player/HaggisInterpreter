@@ -2,18 +2,12 @@
  *An Interpreter written in C# to simulate the reference language*
 
 
-
-> There is no available .exe at the current time as I am still developing the main logic.
->
-> Add this code to a new C# project (Library for Interpreter, Console for running the Interpreter )
->
-> *( Haven't added args yet - thats why... don't tell anyone! )*
-
-
-
 Haggis is a reference language used in SQA Exams from `National 4` up to `Advanced Higher`.
 
 This project that I am developing will act if its an actual language that could operate (it isn't)	
+
+You may try out the language as an executable, [here](https://github.com/TheE7Player/HaggisInterpreter/releases).
+> Note: This project is still in developement and doesn't evaulate the language as a whole yet!
 
 ------
 
