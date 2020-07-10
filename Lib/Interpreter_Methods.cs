@@ -1,13 +1,80 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HaggisInterpreter2
 {
     public partial class Interpreter
     {
+        private bool MoreThanOneFunction(string input)
+        {
+            var validFunctions = new string[] { "DECLEAR", "SET", "SEND", "RECEIVE" };
+            var inArr = input.Trim().Split();
+            var count = inArr.Count(x => validFunctions.Contains(x));
+            return (count > 1) ? true : false;
+        }
+
+        private bool _execute(string[] executionLine)
+        {
+            string joinedExpression = String.Join(" ", executionLine);
+            switch (executionLine[0])
+            {
+                case "DECLEAR":
+                    Declear(executionLine, true);
+                    return false;
+
+                case "SET":
+                    Declear(executionLine, false);
+                    return false;
+
+                case "SEND":
+                    Send(joinedExpression);
+                    return false;
+
+                case "RECEIVE":
+                    Receive(joinedExpression);
+                    return false;
+
+                case "IF":
+                    If(joinedExpression);
+                    return false;
+
+                default:
+                    Error($"Expected a keyword, but got: {executionLine[0]} instead!", executionLine[0]);
+                    return true;
+            }
+        }
+
+        private string GetNextLine(int ForceIndex = -1, bool Trim = true)
+        {
+            if (ForceIndex > -1)
+            {
+                if (ForceIndex > file.Length)
+                    throw new Exception($"Supplied ForceIndex has succeeded past the max value (Interpreter called for {ForceIndex}, but max is: {file.Length})");
+
+                line = ForceIndex;
+                Line = ForceIndex;
+            }
+
+            while (line < file.Length)
+            {
+                if (file[line].Trim().StartsWith("#") || string.IsNullOrEmpty(file[line]))
+                {
+                    line++; Line++;
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (line == file.Length)
+                return null;
+
+            line++; Line++;
+            return (Trim) ? file[line - 1].Trim() : file[line - 1];
+        }
+
         public void Execute()
         {
             var Exit = false;
@@ -15,48 +82,15 @@ namespace HaggisInterpreter2
             if (callStack.Count == 0)
                 callStack.Push("script run");
 
-            while (line < file.Length)
+            string line = string.Empty;
+            while ((line = GetNextLine()) != null)
             {
-                if (file[line].Trim().StartsWith("#") || string.IsNullOrEmpty(file[line]))
-                {
-                    line++;
-                    Line++;
-                    continue;
-                }
-
-                var commands = file[line].Trim().Split();
-
-                switch (commands[0])
-                {
-
-                    case "DECLEAR":
-                        Declear(commands, true);
-                        break;
-
-                    case "SET":
-                        Declear(commands, false);
-                        break;
-
-                    case "SEND":
-                        Send(String.Join(" ", commands));
-                        break;
-
-                    case "RECEIVE":
-                        Receive(String.Join(" ", commands));
-                        break;
-
-                    default:
-                        Error($"Expected a keyword, but got: {commands[0]} instead!", commands[0]);
-                        Exit = true;
-                        break;
-                }
+                Exit = _execute(line.Split());
 
                 if (Exit)
                     break;
-
-                line++;
-                Line++;
             }
+
             callStack.Pop();
         }
 
@@ -64,19 +98,19 @@ namespace HaggisInterpreter2
         {
             try
             {
-                return file[line].Trim().IndexOf(toFind);
+                return file[line - 1].Trim().IndexOf(toFind);
             }
             catch (Exception)
             {
                 return -1;
-            }         
+            }
         }
 
         internal void Error(string message, string fault)
         {
-            /* Order:         
+            /* Order:
                 [0] = Line fault
-                [1] = Column fault 
+                [1] = Column fault
                 [2] = Length of fault
             */
             int columnFault = GetColumnFault(fault);
@@ -143,7 +177,6 @@ namespace HaggisInterpreter2
                         return;
                     }
 
-
                     if (var_type == "STRING" || var_type == "CHAR")
                     {
                         value = (var_type == "STRING") ? new Value(information[5]) : new Value((information[5].ToCharArray()[0]));
@@ -165,7 +198,7 @@ namespace HaggisInterpreter2
                     else if (var_type == "REAL")
                     {
                         double i;
-                        if (Double.TryParse(information[5], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out i))
+                        if (Double.TryParse(information[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out i))
                         {
                             value = new Value(i);
                         }
@@ -202,7 +235,7 @@ namespace HaggisInterpreter2
                 var name = information[1];
                 var express = information.Skip(3).ToArray();
 
-                if(information[2] != "TO")
+                if (information[2] != "TO")
                 {
                     Column = GetColumnFault(information[2]);
                     Error($"ASSIGNMENT FAULT: NEEDED \"TO\" TO ASSIGN A VARIABLE, GOT {information[2]} INSTEAD!", information[2]);
@@ -222,7 +255,6 @@ namespace HaggisInterpreter2
                     name = null;
                     express = null;
                 }
-
             }
         }
 
@@ -232,10 +264,10 @@ namespace HaggisInterpreter2
 
             bool endsCorrectly = (ex[ex.Length - 2] == "TO" && ex[ex.Length - 1] == "DISPLAY") ? true : false;
 
-            if (!endsCorrectly) 
+            if (!endsCorrectly)
             {
                 Column = GetColumnFault($"{ex[ex.Length - 2]} {ex[ex.Length - 1]}");
-                Error($"Excepted \"TO DISPLAY\" ending, got {ex[ex.Length - 2]} {ex[ex.Length - 1]} instead", $"{ex[ex.Length - 2]} {ex[ex.Length - 1]}"); 
+                Error($"Excepted \"TO DISPLAY\" ending, got {ex[ex.Length - 2]} {ex[ex.Length - 1]} instead", $"{ex[ex.Length - 2]} {ex[ex.Length - 1]}");
             }
 
             express = express.Replace("SEND", "");
@@ -264,16 +296,17 @@ namespace HaggisInterpreter2
                 Error($"Excepted \"FROM\", got {ex[2]} instead", ex[2]);
             }
 
-            if (!ex[ex.Length - 1].Equals("KEYBOARD")) 
+            if (!ex[ex.Length - 1].Equals("KEYBOARD"))
             {
                 Column = GetColumnFault(ex[ex.Length - 1]);
-                Error($"\"KEYBOARD\" is the only supported device at this time, got {ex[ex.Length - 1]} instead", ex[ex.Length - 1]); 
+                Error($"\"KEYBOARD\" is the only supported device at this time, got {ex[ex.Length - 1]} instead", ex[ex.Length - 1]);
             }
 
             // Good, it meant that the syntax pattern was correct!
             string input = string.Empty;
 
-            if (!DefaultVal.Keys.Any(y => y.Equals(varType))) {
+            if (!DefaultVal.Keys.Any(y => y.Equals(varType)))
+            {
                 Column = GetColumnFault(varType);
                 Error($"\"{varType}\" isn't a recognisable data type for {varName}!", varType);
             }
@@ -285,7 +318,8 @@ namespace HaggisInterpreter2
             {
                 if (_flags.Inputs.ContainsKey(varName))
                     input = _flags.Inputs[varName];
-                else {
+                else
+                {
                     Column = GetColumnFault(varName);
                     Error($"{varName} isn't decleared or exists at time of execution", varName);
                 }
@@ -309,7 +343,7 @@ namespace HaggisInterpreter2
                 // try to parse as double, if failed read value as string
                 if (double.TryParse(input, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d))
                     variables[varName] = new Value(d);
-                else 
+                else
                 {
                     Column = GetColumnFault(input);
                     Error($"ERROR: EXPECTED REAL, GOT {input} INSTEAD", input);
@@ -327,8 +361,118 @@ namespace HaggisInterpreter2
                     Error($"ERROR: EXPECTED REAL, GOT {input} INSTEAD", input);
                 }
             }
-
         }
 
+        private void If(string expression)
+        {
+            /* if (!information[2].Equals("AS"))
+             {
+                 Column = GetColumnFault(information[2]);
+                 Error($"PATTERN FAULT: Pattern for [DECLEAR] should have followed [AS] but got: {information[2]} instead!", information[2]);
+                 return;
+             }*/
+
+            // Valdiate if the IF statement is in one line (Horizontal IF statement)
+
+            #region Verticle If Statement
+
+            if (expression.StartsWith("IF") && expression.EndsWith("END IF") && expression.Contains("THEN"))
+            {
+                Column = GetColumnFault("IF");
+                string condition_expression = expression.Substring(3, expression.IndexOf("THEN") - 3).Trim();
+                Column = GetColumnFault(condition_expression);
+                var result = Expression.PerformExpression(this.variables, condition_expression);
+                string trueExpression;
+                string falseExpression;
+
+                //Avoid evaluation on horiz. IF statment if it evaluates to false (No need to waste cpu cycles)
+                if (!expression.Contains("ELSE") && result.BOOLEAN == false)
+                    return;
+
+                int tIndex = expression.IndexOf("THEN") + 4;
+                int tIndexEnd = expression.LastIndexOf("ELSE");
+                int fIndexEnd = expression.LastIndexOf("END");
+
+                if (expression.Contains("ELSE"))
+                {
+                    trueExpression = expression.Substring(tIndex, tIndexEnd - tIndex).Trim();
+
+                    if (MoreThanOneFunction(trueExpression))
+                    {
+                        Column = GetColumnFault(trueExpression);
+                        Error("EXPRESSION FAULT: HAD MORE THAN 1 STATEMENT IN A SINGLE LINE, USE VERTICAL IF STATEMENT INSTEAD", trueExpression);
+                        return;
+                    }
+
+                    falseExpression = expression.Substring(tIndexEnd + 4, fIndexEnd - (tIndexEnd + 4)).Trim();
+
+                    if (MoreThanOneFunction(falseExpression))
+                    {
+                        Column = GetColumnFault(falseExpression);
+                        Error("EXPRESSION FAULT: HAD MORE THAN 1 STATEMENT IN A SINGLE LINE, USE VERTICAL IF STATEMENT INSTEAD", trueExpression);
+                        return;
+                    }
+
+                    if (result.BOOLEAN == true)
+                    { _execute(trueExpression.Split()); return; }
+                    else
+                    { _execute(falseExpression.Split()); return; }
+                }
+                else
+                    trueExpression = expression.Substring(tIndex, fIndexEnd - tIndex).Trim();
+
+                _execute(trueExpression.Split());
+            }
+
+            #endregion Verticle If Statement
+
+            #region Horizontal If Statement
+
+            if (expression.StartsWith("IF") && expression.EndsWith("THEN"))
+            {
+                //TODO: Handle if 'ELSE' or 'END IF' isn't included?
+
+                Column = GetColumnFault("IF");
+                string condition_expression = expression.Substring(3, expression.IndexOf("THEN") - 3).Trim();
+                Column = GetColumnFault(condition_expression);
+                var result = Expression.PerformExpression(this.variables, condition_expression);
+
+                // If false, skip to when we reach `ELSE` case
+                if (result.BOOLEAN == false)
+                {
+                    // Skip the lines till we hit 'ELSE'
+                    string _l;
+                    while (!(_l = GetNextLine()).Contains("ELSE")) { }
+
+                    if (_l.StartsWith("ELSE IF"))
+                    {
+                        _execute(_l.Trim().Substring(5).Split());
+                    }
+                    else
+                    {
+                        while ((_l = GetNextLine()) != "END IF")
+                            _execute(_l.Trim().Split());
+
+                        GetNextLine();
+                    }
+                }
+                else
+                {
+                    // Result is true
+                    string _l;
+                    while (!(_l = GetNextLine()).Contains("ELSE"))
+                    {
+                        if (_l == "END IF")
+                            return;
+
+                        _execute(_l.Trim().Split());
+                    }
+
+                    while ((_l = GetNextLine()) != "END IF") { }
+                }
+            }
+
+            #endregion Horizontal If Statement
+        }
     }
 }

@@ -1,37 +1,36 @@
-﻿using System;
+﻿using HaggisInterpreter2;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using HaggisInterpreter2;
 
 namespace HaggisInterpreter2Run
 {
-    class Program
+    internal class Program
     {
-        private static string build = "0.4";
+        private static string build = "0.5";
 
         private static void Title(string file = "")
         {
             Console.Title = (string.IsNullOrEmpty(file)) ? $"HAGGIS INTERPRETER {build}" : $"HAGGIS INTERPRETER {build}: {file} ";
         }
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Title();
 
             bool toExit = false;
             Dictionary<string, bool> filePasses = new Dictionary<string, bool>(1);
-
+            Dictionary<string, System.Diagnostics.Stopwatch> filePassesTimes = new Dictionary<string, System.Diagnostics.Stopwatch>(1);
             List<string> files = new List<string>(1);
 
             // Invalid rule: First param has to be folder, if folder futher on, error!
             FileAttributes attr;
             for (int i = 0; i < args.Length; i++)
             {
-                if(!Directory.Exists(args[i]) && !args[i].Contains(".haggis"))
+                if (!Directory.Exists(args[i]) && !args[i].Contains(".haggis"))
                 {
                     Console.WriteLine($"ERROR: Unknown Directory has been entered... {args[i]}");
                 }
@@ -47,9 +46,9 @@ namespace HaggisInterpreter2Run
                     break;
                 }
 
-                if(attr.HasFlag(FileAttributes.Directory))
+                if (attr.HasFlag(FileAttributes.Directory))
                 {
-                    if(args.Length == 1)
+                    if (args.Length == 1)
                     {
                         files = Directory.GetFiles(args[i]).Where(x => x.ToLower().EndsWith(".haggis")).ToList<string>();
                         break;
@@ -59,7 +58,7 @@ namespace HaggisInterpreter2Run
                         Console.WriteLine($"ERROR: You cannot pass in a folder with other files!\nPassing a folder should only be 1 param!");
                         toExit = true;
                         break;
-                    }               
+                    }
                 }
                 else
                 {
@@ -67,7 +66,7 @@ namespace HaggisInterpreter2Run
                 }
             }
 
-            if(toExit)
+            if (toExit)
             {
                 Console.WriteLine("PRESSING ANY KEY WILL EXIT THE APPLICATION");
                 Console.ReadLine();
@@ -76,7 +75,6 @@ namespace HaggisInterpreter2Run
 
             foreach (var file in files)
             {
-
                 if (!Path.GetExtension(file).Equals(".haggis"))
                 {
                     Console.WriteLine("Sorry, only .haggis files are able to run in this interpreter");
@@ -129,7 +127,7 @@ namespace HaggisInterpreter2Run
                                 var input = val.Substring(val.IndexOf('-') + 1);
 
                                 if (Object.ReferenceEquals(my_flags.Inputs, null))
-                                   my_flags.Inputs = new Dictionary<string, string>(1);
+                                    my_flags.Inputs = new Dictionary<string, string>(1);
 
                                 my_flags.Inputs.Add(key, input);
 
@@ -146,23 +144,29 @@ namespace HaggisInterpreter2Run
 
                 Console.WriteLine($"\n== RUNNING: {Path.GetFileNameWithoutExtension(file)} ==\n");
 
+                var filePath = Path.GetFileName(file);
+
                 HaggisInterpreter2.Interpreter basic = new HaggisInterpreter2.Interpreter(File.ReadAllLines(file), my_flags);
                 try
                 {
-                    Title(Path.GetFileName(file));
+                    Title(filePath);
+                    filePassesTimes.Add(filePath, new System.Diagnostics.Stopwatch());
+                    filePassesTimes[filePath].Start();
                     basic.Execute();
-                    filePasses[Path.GetFileName(file)] = true;
+                    filePassesTimes[filePath].Stop();
+                    filePasses[filePath] = true;
                 }
                 catch (Exception e)
                 {
-                    filePasses[Path.GetFileName(file)] = false;
+                    filePasses[filePath] = false;
+                    filePassesTimes[filePath].Stop();
                     Console.WriteLine("ERROR:");
 
-                    int line = (Interpreter.executionHandled) ? basic.errorArea[0]: Interpreter.Line;
+                    int line = (Interpreter.executionHandled) ? basic.errorArea[0] : Interpreter.Line;
                     int col = (Interpreter.executionHandled) ? basic.errorArea[1] : Interpreter.Column;
 
                     var sb = new StringBuilder(fileFull[line - 1].Length);
-                    if(Interpreter.executionHandled)
+                    if (Interpreter.executionHandled)
                         Console.WriteLine($"Line {line} : Col {col} - {e.Message}\n");
                     else
                         Console.WriteLine($"UNHANDLED EXCEPTION AT LINE {line}: {e.Message}");
@@ -173,7 +177,7 @@ namespace HaggisInterpreter2Run
                     }
                     sb.Append('^', (!Interpreter.executionHandled) ? 1 : basic.errorArea[2]);
 
-                    Console.WriteLine(fileFull[line]);
+                    Console.WriteLine(fileFull[line - 1]);
                     Console.WriteLine(sb.ToString());
                     sb = null;
 
@@ -197,7 +201,7 @@ namespace HaggisInterpreter2Run
                     Console.WriteLine("\nCALLSTACK ON EXECUTION:");
                     for (int i = _stack.Length; i > 0; i--)
                     {
-                        Console.WriteLine($"[{i-1}] {_stack[i - 1]}");
+                        Console.WriteLine($"[{i - 1}] {_stack[i - 1]}");
                     }
 
                     fileFault = null;
@@ -206,22 +210,46 @@ namespace HaggisInterpreter2Run
                 Console.WriteLine($"\n== Finished: {Path.GetFileNameWithoutExtension(file)} ==\n");
             }
 
-            if(files.Count > 0) { 
-            Console.WriteLine("OK");
-            Console.WriteLine();
-
-            Console.WriteLine("RESULTS:");
-            foreach (var f in filePasses)
+            if (files.Count > 0)
             {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.Write($"{f.Key}");
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write($" : ");
-                Console.ForegroundColor = (f.Value) ? ConsoleColor.Green : ConsoleColor.Red;
-                var _out = (f.Value) ? "PASS" : "FAIL";
-                Console.Write($"{_out}\n");
-                Console.ForegroundColor = ConsoleColor.White;
-            }}
+                Console.WriteLine("OK");
+                Console.WriteLine();
+
+                Console.WriteLine("RESULTS:");
+                Title("PASS");
+
+                string time;
+                TimeSpan _t;
+
+                foreach (var f in filePasses)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.Write($"{f.Key}");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write($" : ");
+                    Console.ForegroundColor = (f.Value) ? ConsoleColor.Green : ConsoleColor.Red;
+                    var _out = (f.Value) ? "PASS" : "FAIL";
+
+                    if (_out == "FAIL")
+                    {
+                        Title("FAIL");
+                    }
+                    _t = filePassesTimes[f.Key].Elapsed;
+
+                    if(_t.TotalMinutes >= 1.0)
+                        time = $"{_t.TotalMinutes} minutes, {_t.Seconds} seconds and {_t.Milliseconds} millisconds";
+                    else if(_t.TotalSeconds > 1.0)
+                        time = $"{_t.Seconds} seconds and {_t.Milliseconds} millisconds";
+                    else
+                        time = $"{_t.Milliseconds} millisconds";
+
+                    Console.Write($"{_out} ({time})\n");
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+                filePasses = null;
+                files = null;
+                filePassesTimes = null;
+            }
             else
             {
                 Console.WriteLine("Haggis Interpreter written in C# by TheE7Player");

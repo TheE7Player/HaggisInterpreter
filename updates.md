@@ -120,3 +120,35 @@ Current test scripts that work with this build:
 - Input.haggis
 - Manual Set.haggis
 - CtoFCalcuator.haggis
+
+## Build 0.5 (10th July 2020)
+
+### "To be or not to be?" - That doesn't answer my question...
+
+- Fixed `REAL` conversion error that occurs
+- Fixed spelling error when the comparing unbalanced data types
+  - Comparing `INTERGER` as `REAL`
+  - Comparing `REAL` as `INTERGER`
+- Added support for IF statements
+  - Added `Vertical If Statement`
+    - You can only assign one statement on `True` and `False` clause, error if you assign more functionality to a vertical statement
+  - Added `Horizontal If Statement`
+    - Here you can call as many functions or commands as you like, you cannot do this with the `Vertical If Statement`
+  - Can support `NOT` function wrapper or `!=`
+  - Can support an extra `IF` statement from an `ELSE` clause
+- Fixed wrong operator used for comparing options in `IF` statement ( `==` to `=` )
+- Fixed comparisons return type if evaluating instead of modifying (`INTERGER` to `BOOLEAN`)
+  - This made it hard to evaluate `NOT` expressions
+  - This would also impact values of type `INTERGER`
+
+- Fixed conversion issue of data types
+- Cached local string to prevent unnecessary CPU cycle wastes ( Script Name )
+- Added timer on how long the script executed for (Minutes, Seconds and Milliseconds)
+
+Current test scripts that work with this build:
+
+- Normal Test 1.haggis
+- Input.haggis
+- Manual Set.haggis
+- CtoFCalcuator.haggis
+- If statement.haggis

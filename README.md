@@ -34,7 +34,7 @@ The current scripts runs without any errors:
 |         File         | Works (Current Build) |
 | :------------------: | :-------------------: |
 | CtoFCalcuator.haggis | ✔️ ( **Since v0.4** )  |
-| If statement.haggis  |           ❌           |
+| If statement.haggis  | ✔️ ( **Since v0.5** )  |
 |     Input.haggis     | ✔️ ( **Since v0.2** )  |
 |  Manual Set.haggis   | ✔️ ( **Since v0.2** )  |
 | Normal Test 1.haggis | ✔️ ( **Since v0.1** )  |

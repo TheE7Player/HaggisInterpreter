@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HaggisInterpreter2
@@ -168,24 +167,24 @@ namespace HaggisInterpreter2
                     else
                         throw new Exception($"PROBLEM: Issue with managing characters on left or right hand side ({l},{r})");
             }
-            else if (op.Equals("=="))
+            else if (op.Equals("="))
             {
                 switch (l.Type)
                 {
                     case ValueType.REAL:
-                        return new Value(l.REAL == r.REAL ? 1 : 0);
+                        return new Value(l.REAL == r.REAL ? true : false);
 
                     case ValueType.STRING:
-                        return new Value(l.STRING == r.STRING ? 1 : 0);
+                        return new Value(l.STRING == r.STRING ? true : false);
 
                     case ValueType.BOOLEAN:
-                        return new Value(l.BOOLEAN == r.BOOLEAN ? 1 : 0);
+                        return new Value(l.BOOLEAN == r.BOOLEAN ? true : false);
 
                     case ValueType.INTEGER:
-                        return new Value(l.INT == r.INT ? 1 : 0);
+                        return new Value(l.INT == r.INT ? true : false);
 
                     case ValueType.CHARACTER:
-                        return new Value(l.CHARACTER == r.CHARACTER ? 1 : 0);
+                        return new Value(l.CHARACTER == r.CHARACTER ? true : false);
                 }
             }
             else if (op.Equals("!="))
@@ -193,19 +192,19 @@ namespace HaggisInterpreter2
                 switch (l.Type)
                 {
                     case ValueType.REAL:
-                        return new Value(l.REAL == r.REAL ? 0 : 1);
+                        return new Value(l.REAL == r.REAL ? false : true);
 
                     case ValueType.STRING:
-                        return new Value(l.STRING == r.STRING ? 0 : 1);
+                        return new Value(l.STRING == r.STRING ? false : true);
 
                     case ValueType.BOOLEAN:
-                        return new Value(l.BOOLEAN == r.BOOLEAN ? 0 : 1);
+                        return new Value(l.BOOLEAN == r.BOOLEAN ? false : true);
 
                     case ValueType.INTEGER:
-                        return new Value(l.INT == r.INT ? 0 : 1);
+                        return new Value(l.INT == r.INT ? false : true);
 
                     case ValueType.CHARACTER:
-                        return new Value(l.CHARACTER == r.CHARACTER ? 0 : 1);
+                        return new Value(l.CHARACTER == r.CHARACTER ? false : true);
                 }
             }
             else
@@ -223,13 +222,13 @@ namespace HaggisInterpreter2
                         case "*": return new Value(l.REAL * r.REAL);
                         case "/": return new Value(l.REAL / r.REAL);
                         //case Token.Caret: return new Value(Math.Pow(l.REAL, r.REAL));
-                        case "<": return new Value(l.REAL < r.REAL ? 1 : 0);
-                        case ">": return new Value(l.REAL > r.REAL ? 1 : 0);
-                        case "<=": return new Value((l.REAL <= r.REAL) ? 1 : 0);
-                        case ">=": return new Value(l.REAL >= r.REAL ? 1 : 0);
-                        case "AND": return new Value((l.REAL != 0) && (r.REAL != 0) ? 1 : 0);
-                        case "OR": return new Value((l.REAL != 0) || (r.REAL != 0) ? 1 : 0);
-                        case "!=": return new Value((l.REAL != 0) != (r.REAL != 0) ? 1 : 0);
+                        case "<": return new Value(l.REAL < r.REAL ? true : false);
+                        case ">": return new Value(l.REAL > r.REAL ? true : false);
+                        case "<=": return new Value((l.REAL <= r.REAL) ? true : false);
+                        case ">=": return new Value(l.REAL >= r.REAL ? true : false);
+                        case "AND": return new Value((l.REAL != 0) && (r.REAL != 0) ? true : false);
+                        case "OR": return new Value((l.REAL != 0) || (r.REAL != 0) ? true : false);
+                        case "!=": return new Value((l.REAL != 0) != (r.REAL != 0) ? true : false);
                     }
 
                 if (l.Type == ValueType.INTEGER)
@@ -239,21 +238,21 @@ namespace HaggisInterpreter2
                         case "*": return new Value(l.INT * r.INT);
                         case "/": return new Value(l.INT / r.INT);
                         //case Token.Caret: return new Value(Math.Pow(l.INT, r.INT));
-                        case "<": return new Value(l.INT < r.INT ? 1 : 0);
-                        case ">": return new Value(l.INT > r.INT ? 1 : 0);
-                        case "<=": return new Value(l.INT <= r.INT ? 1 : 0);
-                        case ">=": return new Value(l.INT >= r.INT ? 1 : 0);
-                        case "AND": return new Value((l.INT != 0) && (r.INT != 0) ? 1 : 0);
-                        case "OR": return new Value((l.INT != 0) || (r.INT != 0) ? 1 : 0);
-                        case "!=": return new Value((l.INT != 0) != (r.INT != 0) ? 1 : 0);
+                        case "<": return new Value(l.INT < r.INT ? true : false);
+                        case ">": return new Value(l.INT > r.INT ? true : false);
+                        case "<=": return new Value(l.INT <= r.INT ? true : false);
+                        case ">=": return new Value(l.INT >= r.INT ? true : false);
+                        case "AND": return new Value((l.INT != 0) && (r.INT != 0) ? true : false);
+                        case "OR": return new Value((l.INT != 0) || (r.INT != 0) ? true : false);
+                        case "!=": return new Value((l.INT != 0) != (r.INT != 0) ? true : false);
                     }
 
                 if (l.Type == ValueType.BOOLEAN)
                     switch (op)
                     {
-                        case "AND": return new Value((l.BOOLEAN != false) && (r.BOOLEAN != false) ? 1 : 0);
-                        case "OR": return new Value((l.BOOLEAN != false) || (r.BOOLEAN != false) ? 1 : 0);
-                        case "NOT": return new Value((l.BOOLEAN != false) != (r.BOOLEAN != false) ? 1 : 0);
+                        case "AND": return new Value((l.BOOLEAN != false) && (r.BOOLEAN != false) ? true : false);
+                        case "OR": return new Value((l.BOOLEAN != false) || (r.BOOLEAN != false) ? true : false);
+                        case "NOT": return new Value((l.BOOLEAN != false) != (r.BOOLEAN != false) ? true : false);
                     }
             }
 
@@ -290,6 +289,7 @@ namespace HaggisInterpreter2
             var stack = new Stack(exp.Length + 4);
 
             bool anyBrackets = exp.Any(x => x.StartsWith("("));
+            bool mutlipleQuery = exp.Any(y => y == "AND" || y == "OR");
 
             if (anyBrackets)
             {
@@ -377,6 +377,17 @@ namespace HaggisInterpreter2
 
                     Value _e_result = DoExpr(lNum, _e.Item2, rNum);
 
+                    if (queueOp.Count != 0)
+                    {
+                        var isNot = queueOp.Peek() as string;
+
+                        if (isNot.StartsWith("NOT"))
+                        {
+                            // Perform a switch (True becomes false, False becomes true)
+                            _e_result.BOOLEAN = !_e_result.BOOLEAN;
+                            queueOp.Dequeue();
+                        }
+                    }
                     if (queueOp.Count == 0)
                     {
                         refIndex = null; personalStack = null; _exp = null; expr = null;
@@ -409,8 +420,24 @@ namespace HaggisInterpreter2
                     }
                 }
 
-                var operands = GetOperands(ref stack, ref vals);
-                var eval = DoExpr(operands.Item1, operands.Item2, operands.Item3);
+                Value eval = new Value();
+
+                if (mutlipleQuery)
+                {
+                    var operandsL = GetOperands(ref stack, ref vals);
+                    var oper = stack.Pop() as string;
+                    var operandsR = GetOperands(ref stack, ref vals);
+
+                    var l = DoExpr(operandsL.Item1, operandsL.Item2, operandsL.Item3);
+                    var r = DoExpr(operandsR.Item1, operandsR.Item2, operandsR.Item3);
+
+                    eval = DoExpr(l, oper, r);
+                }
+                else
+                {
+                    var operands = GetOperands(ref stack, ref vals);
+                    eval = DoExpr(operands.Item1, operands.Item2, operands.Item3);
+                }
 
                 stack.Push(eval);
                 runCycle = true;
