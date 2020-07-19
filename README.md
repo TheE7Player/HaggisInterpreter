@@ -29,7 +29,7 @@ The current scripts runs without any errors:
 
 > There is more scripts as I started the project initially from another forked C# interpreter, had issues after a few days - So I did it by scratch to simplify things.
 
-
+> Built up from [Timu5](https://github.com/Timu5)'s [BasicSharp](https://github.com/Timu5/BasicSharp)  (How I got into designing evaluators/interpreters)
 
 |         File         | Works (Current Build) |
 | :------------------: | :-------------------: |
@@ -39,7 +39,7 @@ The current scripts runs without any errors:
 |  Manual Set.haggis   | ✔️ ( **Since v0.2** )  |
 | Normal Test 1.haggis | ✔️ ( **Since v0.1** )  |
 |  RepeatLoop.haggis   |           ❌           |
-| StrFunctions.haggis  |           ❌           |
+| StrFunctions.haggis  | ✔️ ( **Since v0.6** )  |
 |   WhileLoop.haggis   |           ❌           |
 
 ------

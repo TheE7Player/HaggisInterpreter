@@ -2,14 +2,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace HaggisInterpreter2
 {
     internal static class Expression
     {
-        private static char[] validOperations = new char[] { '+', '/', '*', '-', '(', ')', '&', '!', '=' };
-
+        public static char[] validOperations = new char[] { '+', '/', '*', '-', '(', ')', '&', '!', '=', '>', '<'};
+        public static string[] validFunctions = new string[] { "Lower", "Upper", "Trim", "Title" };
+        public static string[] validComparisons = new string[] {">", "<", "!=", "NOT", "AND", "OR", "<=", ">=", "<>", "!", "="};
         public enum ExpressionType
         {
             /// <summary>
@@ -210,10 +212,10 @@ namespace HaggisInterpreter2
             else
             {
                 if (l.Type == ValueType.STRING)
-                    throw new Exception("Cannot perform requested \"BinOp\" on l \"STRING\"");
+                    throw new Exception("Cannot perform requested \"BinOp\" on \"STRING\"");
 
                 if (l.Type == ValueType.CHARACTER)
-                    throw new Exception("Cannot perform requested \"BinOp\" on l \"CHARACTER\"");
+                    throw new Exception("Cannot perform requested \"BinOp\" on \"CHARACTER\"");
 
                 if (l.Type == ValueType.REAL)
                     switch (op)
@@ -281,15 +283,278 @@ namespace HaggisInterpreter2
             return new Tuple<Value, string, Value>((Value)leftOp, opOper, (Value)rightOp);
         }
 
+        private static Tuple<string, int> FindFunc(string[] exp)
+        {
+            int index = 0;
+
+            for (int i = 0; i < exp.Length; i++)
+            {
+                if(validFunctions.Contains(exp[i]))
+                {
+                    if (index == 0)
+                        return new Tuple<string, int>(exp[i], exp[i].Length + 1);
+                    else
+                    {
+                        index += exp[i].Length + 2;
+                        return new Tuple<string, int>(exp[i], index + 1);
+                    }
+                }
+
+                // Add gap to suite whitespace
+                index += exp[i].Length + 1;
+            }
+
+            return null;
+        }
+
         public static Value PerformExpression(Dictionary<string, Value> vals, string expression)
         {
             var exp = Evaluate(expression.ToString());
-            //Type finalType = exp[0].GetType();
 
+            var blocks = BlockParser.GenerateBlocks(exp, vals);
+
+            // If its all just text, we just ammend it
+            if(!blocks.Any(x => x.BinaryOp != ""))
+            {
+                int allText = blocks.Where(x=>x.blockType == BlockType.Text).Distinct().Count();
+
+                if(allText == blocks.Count)
+                {
+                    var sb = new StringBuilder();
+                    for (int i = 0; i < blocks.Count; i++)
+                    {
+          
+                        sb.Append(blocks[i].Value.ToString());
+
+                        if(i < (blocks.Count - 1))
+                            sb.Append(" ");
+                    }
+                    blocks = new List<IBlock> { new Block { Value = new Value(sb.ToString(), true) } };
+                }
+            }
+
+
+            if(blocks.Count > 1)
+            {
+                var sortedLevel = BlockParser.SortByOrder(blocks);
+
+                List<IBlock> lvlList;
+                int HighestIndex = 0;
+                int currentLevel = 0;
+                foreach (var lvl in sortedLevel)
+                {
+                    lvlList = lvl.Value;
+                    currentLevel = lvl.Key;
+                    HighestIndex = lvlList.Count - 1;
+
+                    if (string.IsNullOrEmpty(lvlList[HighestIndex - 1].BinaryOp))
+                    {
+                        if(lvlList[0].blockType != BlockType.BinOp)
+                            throw new Exception($"Cannot do an operation with the given BinOP, \"{ lvlList[HighestIndex - 1].BinaryOp }\"!");
+
+                        // We need to fix the order, The newest value (Highest index needs to be on top, at index 0)
+                        var newLeft = lvlList[HighestIndex];   
+                        lvlList.RemoveAt(HighestIndex);
+                        lvlList.Insert(0, newLeft);
+
+                        // We need to remove the operator!
+                        lvlList[0].BinaryOp = lvlList[1].Value.ToString();
+                        lvlList.RemoveAt(1);
+
+                        // Reassign the max index as it was based on 3(ish) items and not 2
+                        HighestIndex = lvlList.Count - 1;
+                    }
+                        
+
+                    // Cache the valve(s) for better performance
+                    Value left = Value.Zero;
+                    Value right = Value.Zero;
+                    Value eval = Value.Zero;
+                    string op = string.Empty;
+
+                    while (lvlList.Count > 0)
+                    {
+
+                        if (lvlList[HighestIndex].GetType().Name == "ConditionBlock")
+                        {
+                            ConditionBlock cb = lvlList[HighestIndex] as ConditionBlock;
+
+                            // First check if any variables here are stored
+                            if (cb.Left.Type == ValueType.STRING)
+                                cb.Left = (vals.ContainsKey(cb.Left.STRING)) ? vals[cb.Left.STRING] : cb.Left;
+
+                            if (cb.Right.Type == ValueType.STRING)
+                                cb.Right = (vals.ContainsKey(cb.Right.STRING)) ? vals[cb.Right.STRING] : cb.Right;
+
+                            var _eval = DoExpr(cb.Left, cb.CompareOp, cb.Right);
+
+                            lvlList.RemoveAt(HighestIndex);
+                            HighestIndex = ((lvlList.Count - 1) > 0) ? HighestIndex = lvlList.Count - 1 : 0;
+
+                            if (string.IsNullOrEmpty(cb.BinaryOp))
+                                lvlList.Add(new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                            else
+                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = cb.BinaryOp, blockType = BlockType.Literal });
+
+                            // If we managed to get all ConditionBlocks into Blocks, we reset back to normal (As an index error will happen if we don't!)
+                            bool ConversionNotComplete = lvlList.Any(x => x.GetType().Name == "ConditionBlock");
+
+                            // Refix back to normal HighestIndex
+                            if (!ConversionNotComplete)
+                                HighestIndex = lvlList.Count - 1;
+
+                            continue;
+                        }
+                        else if (lvlList[HighestIndex].GetType().Name == "FuncBlock")
+                        {
+                            FuncBlock fb = lvlList[HighestIndex] as FuncBlock;
+
+                            //TODO: ID array of args (Only single args at the moment)
+                            string args;
+
+                            if (fb.Args.Length == 1)
+                            {
+                                args = fb.Args[0];
+                                args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
+                            }
+                            else 
+                            { 
+                                args = string.Join(",", fb.Args);
+                                throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
+                            }
+
+                            var _eval = FuncExtensions(fb.FunctionName, args, vals);
+
+                            lvlList.RemoveAt(HighestIndex);
+                            HighestIndex = ((lvlList.Count - 1) > 0) ? HighestIndex = lvlList.Count - 1 : 0;
+
+                            if (string.IsNullOrEmpty(fb.BinaryOp))
+                                lvlList.Add(new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                            else
+                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = fb.BinaryOp, blockType = BlockType.Literal });
+
+                            // If we managed to get all ConditionBlocks into Blocks, we reset back to normal (As an index error will happen if we don't!)
+                            bool ConversionNotComplete = lvlList.Any(x => x.GetType().Name == "FuncBlock");
+
+                            // Refix back to normal HighestIndex
+                            if (!ConversionNotComplete)
+                                HighestIndex = lvlList.Count - 1;
+
+                            continue;
+                        }
+                        else
+                        {
+                            try
+                            {
+                                if (lvlList[HighestIndex - 1].blockType == BlockType.Variable)
+                                    left = vals[lvlList[HighestIndex - 1].Value.ToString()];
+                                else
+                                    left = lvlList[HighestIndex - 1].Value;
+                            }
+                            catch (Exception)
+                            {
+                                left = lvlList[HighestIndex - 1].Value;
+                            }
+
+                            op = lvlList[HighestIndex - 1].BinaryOp;
+
+                            try
+                            {
+                                if (lvlList[HighestIndex].blockType == BlockType.Variable)
+                                    right = vals[lvlList[HighestIndex].Value.ToString()];
+                                else
+                                    right = lvlList[HighestIndex].Value;
+                            }
+                            catch (Exception)
+                            {
+                                right = lvlList[HighestIndex].Value;
+                            }
+
+                            lvlList.RemoveAt(HighestIndex);
+                            lvlList.RemoveAt(HighestIndex - 1);
+
+                        }
+
+                        // Move up the data type to allow doubles with floats not to be assigned "0"
+                        if (left.Type == ValueType.INTEGER)
+                            left = left.Convert(ValueType.REAL);
+
+                        if (right.Type == ValueType.INTEGER)
+                            right = right.Convert(ValueType.REAL);
+
+                        eval = DoExpr(left, op, right);
+
+                        if (lvlList.Count == 0)
+                        {
+                            if((currentLevel - 1) == -1)
+                            {
+                                return eval;
+                            }
+
+                            // That means we've reach all the expressions needed for this current level
+                            int newLevel = BlockParser.GetHighestOrder(sortedLevel[currentLevel - 1]);
+
+                            sortedLevel[currentLevel - 1].Add(new Block { Value = eval, OrderLevel = newLevel, BinaryOp = String.Empty, blockType = BlockType.Literal});
+                            continue;
+                        }
+                        
+                        // Ammend it as there are still some more operations to do
+                        sortedLevel[currentLevel].Add(new Block { Value = eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                        HighestIndex = lvlList.Count - 1;
+                    }
+                }
+            }
+
+            if (blocks[0].GetType().Name == "ConditionBlock")
+            {
+                ConditionBlock cb = blocks[0] as ConditionBlock;
+
+                // First check if any variables here are stored
+                if (cb.Left.Type == ValueType.STRING)
+                    cb.Left = (vals.ContainsKey(cb.Left.STRING))?vals[cb.Left.STRING]:cb.Left;
+
+                if (cb.Right.Type == ValueType.STRING)
+                    cb.Right = (vals.ContainsKey(cb.Right.STRING)) ? vals[cb.Right.STRING] : cb.Right;
+
+                // Good, now we check if its an integer, we raise it to the next highest type (Float/Double -> REAL)
+                if (cb.Left.Type == ValueType.INTEGER)
+                    cb.Left = cb.Left.Convert(ValueType.REAL);
+
+                if (cb.Right.Type == ValueType.INTEGER)
+                    cb.Right = cb.Right.Convert(ValueType.REAL);
+
+                return DoExpr(cb.Left, cb.CompareOp, cb.Right);
+            }
+            else if(blocks[0].GetType().Name == "FuncBlock")
+            {
+                FuncBlock fb = blocks[0] as FuncBlock;
+
+                //TODO: ID array of args (Only single args at the moment)
+                string args;
+
+                if (fb.Args.Length == 1)
+                {
+                    args = fb.Args[0];
+                    args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
+                }
+                else
+                {
+                    args = string.Join(",", fb.Args);
+                    throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
+                }
+
+                return FuncExtensions(fb.FunctionName, args, vals);
+            }
+            else
+                return blocks[0].Value;
+           
+            #region OLD CODE (Stack & Queue Based)
+            /*
             var stack = new Stack(exp.Length + 4);
 
             bool anyBrackets = exp.Any(x => x.StartsWith("("));
             bool mutlipleQuery = exp.Any(y => y == "AND" || y == "OR");
+
 
             if (anyBrackets)
             {
@@ -361,6 +626,25 @@ namespace HaggisInterpreter2
                         }
                         else
                             personalStack.Push(pStack);
+                    }
+
+                    if (personalStack.Count == 1)
+                    {
+                        //TODO: Evaluate if this method is robust enough?
+
+                        if (anyBrackets && exp.Any(a => validFunctions.Contains(a)))
+                        {
+                            var func = FindFunc(exp);
+
+                            var f_expr = expression.Substring(func.Item2);
+                            f_expr = f_expr.Substring(0, f_expr.LastIndexOf(")"));
+                            var result = FuncExtensions(func.Item1, f_expr, vals);
+
+                            return result;
+                        }
+
+
+                        return new Value(personalStack.Pop() as string, true);
                     }
 
                     var _e = GetOperands(ref personalStack, ref vals);
@@ -443,7 +727,36 @@ namespace HaggisInterpreter2
                 runCycle = true;
             }
 
-            return (Value)stack.Pop();
+            return (Value)stack.Pop();*/
+            #endregion
+
+        }
+
+        private static Value FuncExtensions(string function, string expression, Dictionary<string, Value> vals)
+        {
+            //var exp = PerformExpression(vals, expression);
+
+            if (function == "Lower")
+                return new Value(expression.ToLower());
+            else if (function == "Upper")
+                return new Value(expression.ToUpper());
+            else if (function == "Trim")
+                return new Value(expression.Trim());
+            else if (function == "Title")
+            {
+                var text = expression.ToCharArray();
+                // We force the first char to be Title automatically
+                text[0] = char.ToUpper(text[0]);
+
+                // If the character before the current character is whitespace, set the current char to upper
+                for (int i = 1; i < text.Length; i++)
+                    if(char.IsWhiteSpace(text[i - 1]))
+                        text[i] = char.ToUpper(text[i]);
+
+                return new Value(String.Join("", text));
+            }
+
+            return new Value();
         }
 
         #endregion Expression Operations

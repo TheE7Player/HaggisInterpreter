@@ -152,3 +152,30 @@ Current test scripts that work with this build:
 - Manual Set.haggis
 - CtoFCalcuator.haggis
 - If statement.haggis
+
+## Build 0.6 (19th July 2020)
+
+### "Goodbye Stacks & Queues"
+
+- Changed the data structure from `Stack` and `Queue` to `Blocks`
+  - This allows more flexibility to expand the logic without affecting the whole project
+  - Code did expand by `75%` by using this structure (`+59 Lines`)
+- Fixed a few grammar issues with error messages
+- More improvements to cache and performance
+- Ability to use `Pseudo` `String` Functions
+  - `Lower`, `Upper`, `Trim`, `Title`
+  - Look at `StrFunctions.haggis` to see these pseudo-functions in action!
+
+
+
+Current test scripts that work with this build:
+
+- Normal Test 1.haggis
+- Input.haggis
+- Manual Set.haggis
+- CtoFCalcuator.haggis
+- If statement.haggis
+- StrFunctions.haggis
+
+
+

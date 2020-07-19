@@ -10,7 +10,7 @@ namespace HaggisInterpreter2Run
 {
     internal class Program
     {
-        private static string build = "0.5";
+        private static string build = "0.6";
 
         private static void Title(string file = "")
         {
