@@ -52,20 +52,17 @@ namespace HaggisInterpreter2
             }
             else
             {
-                Int32 intVal;
-                double doubleVal;
-
                 if (val.ToLower() == "false" || val.ToLower() == "true")
                 {
                     this.Type = ValueType.BOOLEAN;
-                    this.BOOLEAN = (val.ToLower() == "false") ? false : true;
+                    this.BOOLEAN = val.ToLower() != "false";
                 }
-                else if (Int32.TryParse(val, out intVal))
+                else if (Int32.TryParse(val, out int intVal))
                 {
                     this.Type = ValueType.INTEGER;
                     this.INT = intVal;
                 }
-                else if (double.TryParse(val, out doubleVal))
+                else if (double.TryParse(val, out double doubleVal))
                 {
                     this.Type = ValueType.REAL;
                     this.REAL = doubleVal;
@@ -116,7 +113,7 @@ namespace HaggisInterpreter2
                 {
                     case ValueType.REAL:
                         double d;
-                        target = (!Object.ReferenceEquals(this.STRING, null) ? this.STRING : this.INT.ToString());
+                        target = !(STRING is null) ? STRING : INT.ToString();
                         // try to parse as double, if failed read value as string
                         if (double.TryParse(target, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d))
                         {
@@ -124,14 +121,14 @@ namespace HaggisInterpreter2
                         }
                         else
                         {
-                            throw new Exception($"ERROR: Failed to attempt to convert {this.ToString()} as REAL");
+                            throw new Exception($"ERROR: Failed to attempt to convert {this} as REAL");
                         }
                         break;
 
                     case ValueType.INTEGER:
                         // Change INT to REAL
                         int i;
-                        target = (!Object.ReferenceEquals(this.STRING, null) ? this.STRING : this.REAL.ToString());
+                        target = !(STRING is null) ? STRING : REAL.ToString();
 
                         if (Int32.TryParse(target, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out i))
                         {
@@ -139,12 +136,12 @@ namespace HaggisInterpreter2
                         }
                         else
                         {
-                            throw new Exception($"ERROR: Failed to attempt to convert {this.ToString()} as INT");
+                            throw new Exception($"ERROR: Failed to attempt to convert {this} as INT");
                         }
                         break;
 
                     case ValueType.STRING:
-                        this = new Value(this.REAL.ToString());
+                        this = new Value(REAL.ToString());
                         break;
                 }
             }

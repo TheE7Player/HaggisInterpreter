@@ -1,13 +1,13 @@
 # RepeatLoop by James G.
 
-SET number TO 0
+#SET number TO 0
 
 # Now we iterate
-REPEAT
-	SET newNumber TO number + 1
-	SEND "number was " & number & ", but is now: " & newNumber TO DISPLAY
-	SET number to newNumber
-UNTIL number < 5
+#REPEAT
+#	SET newNumber TO number + 1
+#	SEND "number was " & number & ", but is now: " & newNumber TO DISPLAY
+#	SET number TO newNumber
+# UNTIL number < 5
 
 # Now we test input
 REPEAT

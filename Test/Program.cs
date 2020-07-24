@@ -10,7 +10,7 @@ namespace HaggisInterpreter2Run
 {
     internal class Program
     {
-        private static string build = "0.6";
+        private static readonly string build = "0.7";
 
         private static void Title(string file = "")
         {
@@ -126,7 +126,7 @@ namespace HaggisInterpreter2Run
                                 var key = val.Substring(1, val.IndexOf(']') - 1);
                                 var input = val.Substring(val.IndexOf('-') + 1);
 
-                                if (Object.ReferenceEquals(my_flags.Inputs, null))
+                                if (my_flags.Inputs is null)
                                     my_flags.Inputs = new Dictionary<string, string>(1);
 
                                 my_flags.Inputs.Add(key, input);

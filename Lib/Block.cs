@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HaggisInterpreter2
 {
@@ -13,23 +11,13 @@ namespace HaggisInterpreter2
     public enum BlockType
     {
 
-        Null,
+        Null, Variable, Literal,
 
-        Variable,
+        Expression, BinOp, IterWhile, IterRepeat,
 
-        Literal,
+        Text, Function,
 
-        Expression,
-
-        BinOp,
-
-        Text,
-
-        Function,
-
-        Record,
-
-        Class
+        Record, Class
     }
 
     public interface IBlock
@@ -46,6 +34,11 @@ namespace HaggisInterpreter2
         public int OrderLevel { get; set; }
 
         /// <summary>
+        /// Helps to blocks to preserve the order they are when they get sorted
+        /// </summary>
+        public int OrderNumber { get; set; }
+
+        /// <summary>
         /// If the block carries an operation from the right hand side (If any)
         /// </summary>
         public string BinaryOp { get; set; }
@@ -53,8 +46,16 @@ namespace HaggisInterpreter2
         /// The Blocks type
         /// </summary>
         public BlockType blockType { get; set; }
+
+        /// <summary>
+        /// If the given block has any left and right operands. True if both are not empty.
+        /// </summary>
+        /// <returns>True if has left and right, False if either or no valves are inserted</returns>
+        //public bool HasLeftRightOperand();
+       
     }
 
+    #region Blocks
     public class Block : IBlock
     {
         public BlockType blockType { get; set; }
@@ -64,10 +65,13 @@ namespace HaggisInterpreter2
         public Value Value { get; set; }
 
         public string BinaryOp { get; set; }
+
+        public int OrderNumber { get; set; }
     }
 
     public class ConditionBlock : IBlock
     {
+
         public BlockType blockType { get; set; }
         public string BinaryOp { get; set; }
 
@@ -85,6 +89,7 @@ namespace HaggisInterpreter2
         /// </summary>
         public Value Right { get; set; }
         public int OrderLevel { get; set; }
+        public int OrderNumber { get; set; }
     }
 
     public class FuncBlock : IBlock
@@ -95,11 +100,14 @@ namespace HaggisInterpreter2
         public string[] Args { get; set; }
         public string FunctionName { get; set; }
         public int OrderLevel { get; set; }
+        public int OrderNumber { get; set; }
     }
 
+    #endregion
+
     public static class BlockParser
-    {
-        private static bool CanLookAhead(int current, int len) => ((current + 1) < len) ? true : false;
+    {     
+        private static bool CanLookAhead(int current, int len) => ((current + 1) < len); //=> ((current + 1) < len) ? true : false;
         public static List<IBlock> GenerateBlocks(string[] expr, Dictionary<string, Value> vals)
         {
             // Holds the current order level (used for calculations or expressions)
@@ -110,11 +118,11 @@ namespace HaggisInterpreter2
                 var s_list = new List<IBlock>(1);
                 if (vals.ContainsKey(expr[0]))
                 {
-                    s_list.Add(new Block { BinaryOp = null, blockType = BlockType.Variable, Value = vals[expr[0]], OrderLevel = orderLevel });
+                    s_list.Add(new Block { BinaryOp = null, blockType = BlockType.Variable, Value = vals[expr[0]], OrderLevel = orderLevel, OrderNumber = s_list.Count});
                     return s_list;
                 }
 
-                s_list.Add(new Block { BinaryOp = null, blockType = BlockType.Literal, Value = new Value(expr[0], true), OrderLevel = orderLevel });
+                s_list.Add(new Block { BinaryOp = null, blockType = BlockType.Literal, Value = new Value(expr[0], true), OrderLevel = orderLevel, OrderNumber = s_list.Count });
                 return s_list;
             }
 
@@ -138,7 +146,7 @@ namespace HaggisInterpreter2
                             if( expr[i + 1] == ")" )
                             {
                                 i += 2;
-                                _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = null, OrderLevel = orderLevel } );
+                                _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = null, OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count } );
                                 orderLevel++;
                                 continue;
                             }
@@ -149,20 +157,22 @@ namespace HaggisInterpreter2
                             {
                                 if (expr[i] == ")")
                                     break;
+                                else
+                                    i++;
 
                                 if (expr[i] == ",")
                                 {
                                     i++; continue;
                                 }
 
-                                args.Add(expr[i]);
-                                i++;
+                                args.Add(expr[i - 1]);
                             }
                             
-      
-                            i += 2;
-                            _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = args.ToArray(), OrderLevel = orderLevel });
+                            //TODO: Why add 2 here?!
+                            //i += 2;
+                            _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = args.ToArray(), OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count });
                             orderLevel++;
+                            i--;
                             continue;
                         }
                     }
@@ -189,6 +199,17 @@ namespace HaggisInterpreter2
                         }
                     }
 
+                // Append the op block itself it there isnt (Could be caused by a function etc)
+                if(object.ReferenceEquals(op, string.Empty) && Expression.validOperations.Contains(_val.ToString()[0]))
+                {
+                    char subject = _val.ToString()[0];
+                    if ((subject == '(' || subject == ')') && expr[i - 1] != "&")
+                    {
+                        _list.Add(new Block { blockType = BlockType.BinOp, BinaryOp = _val.ToString(), OrderLevel = orderLevel, OrderNumber = _list.Count });
+                        continue;
+                    }
+                }
+
                 // Amend the information now
                 BlockType bType = BlockType.Literal;
 
@@ -196,33 +217,60 @@ namespace HaggisInterpreter2
                     bType = BlockType.Variable;
                 else
                 {
-                    if(_val.Type == ValueType.STRING)
+                    if(_val.Type == ValueType.STRING || _val.Type == ValueType.CHARACTER)
                         bType = BlockType.Text;
 
-                    if (expr[i].Length == 1 && _val.Type == ValueType.CHARACTER)
+                    if (expr[i].Length == 1 && _val.Type == ValueType.CHARACTER && expr[i - 1] != "&")
                         if (Expression.validOperations.Contains(_val.CHARACTER))
                             bType = BlockType.BinOp;
                 }
 
 
                 if (Expression.validComparisons.Contains(expr[i]))
-                { 
-                    _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[i + 1], true), OrderLevel = orderLevel });
-                    i += 1;
-                    if (CanLookAhead(i + 1, max_len))
+                {
+                    try
                     {
-                        if (Expression.validComparisons.Contains(expr[i + 1]))
+                        if (!(_list[_list.Count - 1].GetType().Name == "FuncBlock"))
                         {
-                            _list[_list.Count - 1].BinaryOp = expr[i + 1];
+                            _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[i + 1], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
+                            i += 1;
+                            if (CanLookAhead(i + 1, max_len))
+                            {
+                                if (Expression.validComparisons.Contains(expr[i + 1]))
+                                {
+                                    _list[_list.Count - 1].BinaryOp = expr[i + 1];
+                                    i++;
+                                    continue;
+                                }
+                            }
                             i++;
                             continue;
                         }
-
-                        i++;
                     }
+                    catch (Exception)
+                    {
+                        _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[i + 1], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
+                        i += 1;
+                        if (CanLookAhead(i + 1, max_len))
+                        {
+                            if (Expression.validComparisons.Contains(expr[i + 1]))
+                            {
+                                _list[_list.Count - 1].BinaryOp = expr[i + 1];
+                                i++;
+                                continue;
+                            }
+
+                            i++;
+                        }
+                        continue;
+                    }                   
                 }
+                
+
+                if(bType != BlockType.BinOp)
+                    _list.Add(new Block { blockType = bType, Value = _val, BinaryOp = op, OrderLevel = orderLevel, OrderNumber = _list.Count });
                 else
-                    _list.Add(new Block { blockType = bType, Value = _val, BinaryOp = op, OrderLevel = orderLevel });  
+                    _list.Add(new Block { blockType = bType, BinaryOp = _val.ToString(), OrderLevel = orderLevel, OrderNumber = _list.Count });
             }
 
             return _list;

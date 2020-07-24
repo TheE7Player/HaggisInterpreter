@@ -179,3 +179,64 @@ Current test scripts that work with this build:
 
 
 
+## Build 0.7 (24th July 2020)
+
+### "Stop punching yourself, Stop punching yourself, Stop punch..."
+
+- Added support for `REPEAT` & `WHILE` iterations
+
+- Fixed function wrapper for `NOT` function (`NOT(number = 1)`)
+
+- Added function evaluation support
+
+- Improved Abstractness of Block Logic
+
+- Fixed behaviours that ignore a single block as a valid return value
+
+- Fixed confusing logic with operands (Which made it complex in logic, but oh well.)
+
+- Fixed sorting behaviour to respond to its original pattern
+
+  
+
+  **OPTIMISATIONS**
+
+- Removed unnecessary `NuGet` package that was never used
+
+- Cleaned up any unused `C# Library` that was appended automatically by `IntelliSense`
+
+- Program version variable is now set to `read-only` to prevent any issues
+
+- Removed `ternary operator` over a more simplified expression (`Block.cs`)
+
+- Removed unused functions `GetOperands` & `FindFunc` from `Expressions.cs`
+
+- Commented out `args` variable until `multiple function arguments` are implemented
+
+- `#pragma` to tell `IntelliSense` to ignore the `file` array as it gets initialised in run-time
+
+- Improved `Value.cs` 
+
+  - by simplifying `Interpolation`
+    - `this.ToString()` to `this`
+  - Improving null checks
+  - Using `Inline Variable Declaration` for `out` parameters
+  - Simplifying conditional for Boolean conversion 
+
+- Using discard string `_` for `END IF` check
+
+
+
+> All these optimisations help the program to evaluate the commands and keywords much safer and faster.
+
+Current test scripts that work with this build:
+
+- Normal Test 1.haggis
+- Input.haggis
+- Manual Set.haggis
+- CtoFCalcuator.haggis
+- If statement.haggis
+- StrFunctions.haggis
+- RepeatLoop.haggis
+- WhileLoop.haggis
+

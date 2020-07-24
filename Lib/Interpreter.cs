@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.Odbc;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace HaggisInterpreter2
 {
     public partial class Interpreter
     {
+#pragma warning disable IDE0044 // Add readonly modifier
         private string[] file;
+#pragma warning restore IDE0044 // Add readonly modifier
         public static bool executionHandled = false;
 
         public Dictionary<string, Value> variables { private set; get; }
@@ -23,8 +18,8 @@ namespace HaggisInterpreter2
 
         public int[] errorArea { private set; get; }
 
-        private string[] validTypes = {"INTEGER", "CHAR", "BOOLEAN", "REAL", "STRING"};
-        private Dictionary<string, dynamic> DefaultVal = new Dictionary<string, dynamic>{
+        private readonly string[] validTypes = {"INTEGER", "CHAR", "BOOLEAN", "REAL", "STRING"};
+        private readonly Dictionary<string, dynamic> DefaultVal = new Dictionary<string, dynamic>{
             {"INTEGER", 0 },
             {"CHAR", ' ' },
             {"BOOLEAN", false },

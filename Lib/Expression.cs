@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace HaggisInterpreter2
@@ -55,68 +54,76 @@ namespace HaggisInterpreter2
             var iter = Expression.Trim().ToCharArray();
             var sb = new StringBuilder();
             List<string> output = new List<string>(2);
-
-            // 34 -> "
-            // 32 -> (whitespace)
-            for (int i = 0; i < iter.Length; i++)
+            try
             {
-                // Is current char number '32'
-                if ((int)iter[i] == 32)
+                // 34 -> "
+                // 32 -> (whitespace)
+                for (int i = 0; i < iter.Length; i++)
                 {
-                    if (sb.Length > 0)
-                    {
-                        output.Add(sb.ToString());
-                        sb.Clear();
-                    }
-                    continue;
-                }
-
-                if ((int)iter[i] == 34)
-                {
-                    i++;
-                    while ((int)iter[i] != 34)
-                    {
-                        sb.Append(iter[i]);
-                        i++;
-                    }
-                    output.Add(sb.ToString());
-                    sb.Clear();
-                    continue;
-                }
-                else
-                {
-                    //40 = (, 41 == )
-                    if ((int)iter[i] == 40 || (int)iter[i] == 41)
+                    // Is current char number '32'
+                    if ((int)iter[i] == 32)
                     {
                         if (sb.Length > 0)
                         {
                             output.Add(sb.ToString());
                             sb.Clear();
-
-                            sb.Append(iter[i]);
-                            output.Add(sb.ToString());
-                            sb.Clear();
                         }
-                        else
+                        continue;
+                    }
+
+                    if ((int)iter[i] == 34)
+                    {
+                        i++;
+                        while ((int)iter[i] != 34)
                         {
                             sb.Append(iter[i]);
-                            output.Add(sb.ToString());
-                            sb.Clear();
+                            i++;
                         }
+                        output.Add(sb.ToString());
+                        sb.Clear();
+                        continue;
                     }
                     else
-                        sb.Append(iter[i]);
+                    {
+                        //40 = (, 41 == )
+                        if ((int)iter[i] == 40 || (int)iter[i] == 41)
+                        {
+                            if (sb.Length > 0)
+                            {
+                                output.Add(sb.ToString());
+                                sb.Clear();
+
+                                sb.Append(iter[i]);
+                                output.Add(sb.ToString());
+                                sb.Clear();
+                            }
+                            else
+                            {
+                                sb.Append(iter[i]);
+                                output.Add(sb.ToString());
+                                sb.Clear();
+                            }
+                        }
+                        else
+                            sb.Append(iter[i]);
+                    }
+                }
+
+                if (sb.Length > 0)
+                {
+                    output.Add(sb.ToString());
+                    sb.Clear();
                 }
             }
-
-            if (sb.Length > 0)
+            catch (Exception _)
             {
-                output.Add(sb.ToString());
-                sb.Clear();
+                throw new Exception(_.Message);
             }
-
-            iter = null;
-            sb = null;
+            finally
+            {
+                iter = null;
+                sb = null;
+            }
 
             return output.ToArray();
         }
@@ -130,7 +137,7 @@ namespace HaggisInterpreter2
                 // promote one value to higher type
 
                 // Ignore if the left hand is a string
-                bool lOptIgnore = (l.Type == ValueType.STRING || l.Type == ValueType.CHARACTER) ? true : false;
+                bool lOptIgnore = (l.Type == ValueType.STRING || l.Type == ValueType.CHARACTER);
                 if (lOptIgnore == false)
                 {
                     if (r.Type != ValueType.STRING)
@@ -174,19 +181,19 @@ namespace HaggisInterpreter2
                 switch (l.Type)
                 {
                     case ValueType.REAL:
-                        return new Value(l.REAL == r.REAL ? true : false);
+                        return new Value(l.REAL == r.REAL);
 
                     case ValueType.STRING:
-                        return new Value(l.STRING == r.STRING ? true : false);
+                        return new Value(l.STRING == r.STRING);
 
                     case ValueType.BOOLEAN:
-                        return new Value(l.BOOLEAN == r.BOOLEAN ? true : false);
+                        return new Value(l.BOOLEAN == r.BOOLEAN);
 
                     case ValueType.INTEGER:
-                        return new Value(l.INT == r.INT ? true : false);
+                        return new Value(l.INT == r.INT);
 
                     case ValueType.CHARACTER:
-                        return new Value(l.CHARACTER == r.CHARACTER ? true : false);
+                        return new Value(l.CHARACTER == r.CHARACTER);
                 }
             }
             else if (op.Equals("!="))
@@ -194,19 +201,19 @@ namespace HaggisInterpreter2
                 switch (l.Type)
                 {
                     case ValueType.REAL:
-                        return new Value(l.REAL == r.REAL ? false : true);
+                        return new Value(l.REAL == r.REAL);
 
                     case ValueType.STRING:
-                        return new Value(l.STRING == r.STRING ? false : true);
+                        return new Value(l.STRING == r.STRING);
 
                     case ValueType.BOOLEAN:
-                        return new Value(l.BOOLEAN == r.BOOLEAN ? false : true);
+                        return new Value(l.BOOLEAN == r.BOOLEAN);
 
                     case ValueType.INTEGER:
-                        return new Value(l.INT == r.INT ? false : true);
+                        return new Value(l.INT == r.INT);
 
                     case ValueType.CHARACTER:
-                        return new Value(l.CHARACTER == r.CHARACTER ? false : true);
+                        return new Value(l.CHARACTER == r.CHARACTER);
                 }
             }
             else
@@ -224,13 +231,13 @@ namespace HaggisInterpreter2
                         case "*": return new Value(l.REAL * r.REAL);
                         case "/": return new Value(l.REAL / r.REAL);
                         //case Token.Caret: return new Value(Math.Pow(l.REAL, r.REAL));
-                        case "<": return new Value(l.REAL < r.REAL ? true : false);
-                        case ">": return new Value(l.REAL > r.REAL ? true : false);
-                        case "<=": return new Value((l.REAL <= r.REAL) ? true : false);
-                        case ">=": return new Value(l.REAL >= r.REAL ? true : false);
-                        case "AND": return new Value((l.REAL != 0) && (r.REAL != 0) ? true : false);
-                        case "OR": return new Value((l.REAL != 0) || (r.REAL != 0) ? true : false);
-                        case "!=": return new Value((l.REAL != 0) != (r.REAL != 0) ? true : false);
+                        case "<": return new Value(l.REAL < r.REAL);
+                        case ">": return new Value(l.REAL > r.REAL);
+                        case "<=": return new Value((l.REAL <= r.REAL));
+                        case ">=": return new Value(l.REAL >= r.REAL);
+                        case "AND": return new Value((l.REAL != 0) && (r.REAL != 0));
+                        case "OR": return new Value((l.REAL != 0) || (r.REAL != 0));
+                        case "!=": return new Value((l.REAL != 0) != (r.REAL != 0));
                     }
 
                 if (l.Type == ValueType.INTEGER)
@@ -240,21 +247,21 @@ namespace HaggisInterpreter2
                         case "*": return new Value(l.INT * r.INT);
                         case "/": return new Value(l.INT / r.INT);
                         //case Token.Caret: return new Value(Math.Pow(l.INT, r.INT));
-                        case "<": return new Value(l.INT < r.INT ? true : false);
-                        case ">": return new Value(l.INT > r.INT ? true : false);
-                        case "<=": return new Value(l.INT <= r.INT ? true : false);
-                        case ">=": return new Value(l.INT >= r.INT ? true : false);
-                        case "AND": return new Value((l.INT != 0) && (r.INT != 0) ? true : false);
-                        case "OR": return new Value((l.INT != 0) || (r.INT != 0) ? true : false);
-                        case "!=": return new Value((l.INT != 0) != (r.INT != 0) ? true : false);
+                        case "<": return new Value(l.INT < r.INT);
+                        case ">": return new Value(l.INT > r.INT);
+                        case "<=": return new Value(l.INT <= r.INT);
+                        case ">=": return new Value(l.INT >= r.INT);
+                        case "AND": return new Value((l.INT != 0) && (r.INT != 0));
+                        case "OR": return new Value((l.INT != 0) || (r.INT != 0));
+                        case "!=": return new Value((l.INT != 0) != (r.INT != 0));
                     }
 
                 if (l.Type == ValueType.BOOLEAN)
                     switch (op)
                     {
-                        case "AND": return new Value((l.BOOLEAN != false) && (r.BOOLEAN != false) ? true : false);
-                        case "OR": return new Value((l.BOOLEAN != false) || (r.BOOLEAN != false) ? true : false);
-                        case "NOT": return new Value((l.BOOLEAN != false) != (r.BOOLEAN != false) ? true : false);
+                        case "AND": return new Value((l.BOOLEAN != false) && (r.BOOLEAN != false));
+                        case "OR": return new Value((l.BOOLEAN != false) || (r.BOOLEAN != false));
+                        case "NOT": return new Value((l.BOOLEAN != false) != (r.BOOLEAN != false));
                     }
             }
 
@@ -265,53 +272,26 @@ namespace HaggisInterpreter2
 
         #region Expression Operations
 
-        private static Tuple<Value, string, Value> GetOperands(ref Stack stack, ref Dictionary<string, Value> vals)
-        {
-            var rightOp = stack.Pop();
-            if (vals.ContainsKey(rightOp.ToString()))
-                rightOp = vals[rightOp.ToString()];
-            else if (rightOp.GetType().ToString() != "HaggisInterpreter2.Value")
-                rightOp = new Value(rightOp as string, true);
-
-            var opOper = (string)stack.Pop();
-            var leftOp = stack.Pop();
-            if (vals.ContainsKey(leftOp.ToString()))
-                leftOp = vals[leftOp.ToString()];
-            else if (leftOp.GetType().ToString() != "HaggisInterpreter2.Value")
-                leftOp = new Value(leftOp as string, true);
-
-            return new Tuple<Value, string, Value>((Value)leftOp, opOper, (Value)rightOp);
-        }
-
-        private static Tuple<string, int> FindFunc(string[] exp)
-        {
-            int index = 0;
-
-            for (int i = 0; i < exp.Length; i++)
-            {
-                if(validFunctions.Contains(exp[i]))
-                {
-                    if (index == 0)
-                        return new Tuple<string, int>(exp[i], exp[i].Length + 1);
-                    else
-                    {
-                        index += exp[i].Length + 2;
-                        return new Tuple<string, int>(exp[i], index + 1);
-                    }
-                }
-
-                // Add gap to suite whitespace
-                index += exp[i].Length + 1;
-            }
-
-            return null;
-        }
-
         public static Value PerformExpression(Dictionary<string, Value> vals, string expression)
         {
-            var exp = Evaluate(expression.ToString());
 
-            var blocks = BlockParser.GenerateBlocks(exp, vals);
+            bool notWrapper = false;
+            string[] exp = Evaluate(expression.ToString());
+
+            if(expression.StartsWith("NOT"))
+            {
+                notWrapper = true;
+                var new_exp = exp.ToList();
+
+                new_exp.RemoveAt(0); // Removes the NOT
+                new_exp.RemoveAt(0); // Removes the NOT Left Bracket
+                new_exp.RemoveAt(new_exp.Count - 1); // Removes the NOT Right Bracket
+
+                exp = new_exp.ToArray();
+                new_exp = null;
+            }
+
+            List<IBlock> blocks = BlockParser.GenerateBlocks(exp, vals);
 
             // If its all just text, we just ammend it
             if(!blocks.Any(x => x.BinaryOp != ""))
@@ -333,7 +313,7 @@ namespace HaggisInterpreter2
                 }
             }
 
-
+            bool sortByOrderNumber = false;
             if(blocks.Count > 1)
             {
                 var sortedLevel = BlockParser.SortByOrder(blocks);
@@ -347,30 +327,82 @@ namespace HaggisInterpreter2
                     currentLevel = lvl.Key;
                     HighestIndex = lvlList.Count - 1;
 
+                    if(!sortByOrderNumber){ sortByOrderNumber = true;}
+                    
+                    // List is always in order first iteration, but not after second onwrds
+                    if(sortByOrderNumber)
+                        lvlList = lvlList.OrderBy(o => o.OrderNumber).ToList();
+                                     
                     if (string.IsNullOrEmpty(lvlList[HighestIndex - 1].BinaryOp))
                     {
-                        if(lvlList[0].blockType != BlockType.BinOp)
-                            throw new Exception($"Cannot do an operation with the given BinOP, \"{ lvlList[HighestIndex - 1].BinaryOp }\"!");
+                        if(lvlList[0].blockType == BlockType.BinOp )
+                        {
+                            // We need to fix the order, The newest value (Highest index needs to be on top, at index 0)
+                            var newLeft = lvlList[HighestIndex];   
+                            lvlList.RemoveAt(HighestIndex);
+                            lvlList.Insert(0, newLeft);
 
-                        // We need to fix the order, The newest value (Highest index needs to be on top, at index 0)
-                        var newLeft = lvlList[HighestIndex];   
-                        lvlList.RemoveAt(HighestIndex);
-                        lvlList.Insert(0, newLeft);
+                            // We need to remove the operator!
+                            lvlList[0].BinaryOp = lvlList[1].BinaryOp;
+                            lvlList.RemoveAt(1);
 
-                        // We need to remove the operator!
-                        lvlList[0].BinaryOp = lvlList[1].Value.ToString();
-                        lvlList.RemoveAt(1);
-
-                        // Reassign the max index as it was based on 3(ish) items and not 2
-                        HighestIndex = lvlList.Count - 1;
+                            // Reassign the max index as it was based on 3(ish) items and not 2
+                            HighestIndex = lvlList.Count - 1;
+                        }
+                        else
+                            throw new Exception($"Cannot do an operation with the given BinOP, \"{ lvlList[HighestIndex - 1].BinaryOp }\"!");           
                     }
-                        
+
+                    // Handle if there is an BinOP by itself
+                    int location;
+
+                    while(lvlList.Any(item => item.blockType == BlockType.BinOp))
+                    {
+                        location = lvlList.FindIndex(item => item.blockType == BlockType.BinOp);
+
+                        // Test if "Above and Below" check is possible
+                        if ((location - 1) >= 0 && (location + 1) <= lvlList.Count - 1)
+                        {
+                            // It is possible, time to convert it into an ConditionBlock
+
+                            Value _left;
+                            Value _right;
+                            string _op;
+
+                            _op = lvlList[location].BinaryOp;
+
+                            if (GetBlockType(lvlList[location - 1]) == "Function")
+                                _left = FuncEval(lvlList[location - 1], false, vals);
+                            else
+                                _left = (vals.ContainsKey(lvlList[location - 1].Value.ToString())) ? vals[lvlList[location - 1].Value.ToString()] : lvlList[location - 1].Value;
+
+                            if (GetBlockType(lvlList[location + 1]) == "Function")
+                                _right = FuncEval(lvlList[location + 1], false, vals);
+                            else
+                                _right = (vals.ContainsKey(lvlList[location + 1].Value.ToString())) ? vals[lvlList[location + 1].ToString()] : lvlList[location + 1].Value;
+
+                            lvlList.RemoveAt(location + 1);
+                            lvlList.RemoveAt(location);
+                            lvlList.RemoveAt(location - 1);
+                            lvlList.Add(new ConditionBlock { OrderLevel = currentLevel, OrderNumber = location, Left = _left, CompareOp = _op, Right = _right, blockType = BlockType.Expression});
+
+                            HighestIndex = ((lvlList.Count - 1) > 0) ? HighestIndex = lvlList.Count - 1 : 0;
+                        }
+                        else
+                        {
+                            throw new Exception("Unable to modify block to suit BinOP Block");
+                        }
+
+                    }
+
 
                     // Cache the valve(s) for better performance
                     Value left = Value.Zero;
                     Value right = Value.Zero;
                     Value eval = Value.Zero;
                     string op = string.Empty;
+
+                    int orginalOrder = 0;
 
                     while (lvlList.Count > 0)
                     {
@@ -392,12 +424,12 @@ namespace HaggisInterpreter2
                             HighestIndex = ((lvlList.Count - 1) > 0) ? HighestIndex = lvlList.Count - 1 : 0;
 
                             if (string.IsNullOrEmpty(cb.BinaryOp))
-                                lvlList.Add(new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                                lvlList.Add(new Block { Value = _eval, OrderNumber = cb.OrderNumber, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
                             else
-                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = cb.BinaryOp, blockType = BlockType.Literal });
+                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderNumber = cb.OrderNumber, OrderLevel = currentLevel, BinaryOp = cb.BinaryOp, blockType = BlockType.Literal });
 
                             // If we managed to get all ConditionBlocks into Blocks, we reset back to normal (As an index error will happen if we don't!)
-                            bool ConversionNotComplete = lvlList.Any(x => x.GetType().Name == "ConditionBlock");
+                            bool ConversionNotComplete = lvlList.Any(x => x.GetType().Name == "ConditionBlock") || (lvlList.Count == 1 && lvlList[0].GetType().Name == "Block");
 
                             // Refix back to normal HighestIndex
                             if (!ConversionNotComplete)
@@ -423,15 +455,15 @@ namespace HaggisInterpreter2
                                 throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
                             }
 
-                            var _eval = FuncExtensions(fb.FunctionName, args, vals);
+                            var _eval = FuncExtensions(fb.FunctionName, args);
 
                             lvlList.RemoveAt(HighestIndex);
                             HighestIndex = ((lvlList.Count - 1) > 0) ? HighestIndex = lvlList.Count - 1 : 0;
 
                             if (string.IsNullOrEmpty(fb.BinaryOp))
-                                lvlList.Add(new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                                lvlList.Add(new Block { Value = _eval, OrderNumber = fb.OrderNumber, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
                             else
-                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderLevel = currentLevel, BinaryOp = fb.BinaryOp, blockType = BlockType.Literal });
+                                lvlList.Insert(HighestIndex, new Block { Value = _eval, OrderNumber = fb.OrderNumber, OrderLevel = currentLevel, BinaryOp = fb.BinaryOp, blockType = BlockType.Literal });
 
                             // If we managed to get all ConditionBlocks into Blocks, we reset back to normal (As an index error will happen if we don't!)
                             bool ConversionNotComplete = lvlList.Any(x => x.GetType().Name == "FuncBlock");
@@ -444,10 +476,27 @@ namespace HaggisInterpreter2
                         }
                         else
                         {
+
+                            // No point evaluation as there is a block with a potential value
+                            if (lvlList.Count == 1 && lvlList[0].GetType().Name == "Block")
+                            {
+                                var result = lvlList[0].Value;
+                                if (notWrapper)
+                                {
+                                    if (result.Type != ValueType.BOOLEAN)
+                                        throw new Exception($"Cannot use the NOT wrapper with {result.Type}");
+
+                                    result.BOOLEAN = !result.BOOLEAN;
+                                }
+                                return result;
+                            }
+
                             try
                             {
                                 if (lvlList[HighestIndex - 1].blockType == BlockType.Variable)
                                     left = vals[lvlList[HighestIndex - 1].Value.ToString()];
+                                else if (lvlList[HighestIndex - 1].blockType == BlockType.Function)
+                                    left = FuncEval(lvlList[HighestIndex - 1], notWrapper, vals);
                                 else
                                     left = lvlList[HighestIndex - 1].Value;
                             }
@@ -462,6 +511,8 @@ namespace HaggisInterpreter2
                             {
                                 if (lvlList[HighestIndex].blockType == BlockType.Variable)
                                     right = vals[lvlList[HighestIndex].Value.ToString()];
+                                else if (lvlList[HighestIndex].blockType == BlockType.Function)
+                                    left = FuncEval(lvlList[HighestIndex], notWrapper, vals);
                                 else
                                     right = lvlList[HighestIndex].Value;
                             }
@@ -469,6 +520,8 @@ namespace HaggisInterpreter2
                             {
                                 right = lvlList[HighestIndex].Value;
                             }
+
+                            orginalOrder = lvlList[HighestIndex - 1].OrderNumber;
 
                             lvlList.RemoveAt(HighestIndex);
                             lvlList.RemoveAt(HighestIndex - 1);
@@ -488,62 +541,39 @@ namespace HaggisInterpreter2
                         {
                             if((currentLevel - 1) == -1)
                             {
+                                if(notWrapper)
+                                {
+                                    if (eval.Type != ValueType.BOOLEAN)
+                                        throw new Exception($"Cannot use the NOT wrapper with {eval.Type}");
+
+                                    eval.BOOLEAN = !eval.BOOLEAN;
+                                    return eval;
+                                }
+
                                 return eval;
                             }
 
                             // That means we've reach all the expressions needed for this current level
                             int newLevel = BlockParser.GetHighestOrder(sortedLevel[currentLevel - 1]);
 
-                            sortedLevel[currentLevel - 1].Add(new Block { Value = eval, OrderLevel = newLevel, BinaryOp = String.Empty, blockType = BlockType.Literal});
+                            sortedLevel[currentLevel - 1].Add(new Block { Value = eval, OrderNumber = orginalOrder, OrderLevel = newLevel, BinaryOp = String.Empty, blockType = BlockType.Literal});
                             continue;
                         }
                         
                         // Ammend it as there are still some more operations to do
-                        sortedLevel[currentLevel].Add(new Block { Value = eval, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                        sortedLevel[currentLevel].Add(new Block { Value = eval, OrderNumber = orginalOrder, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
                         HighestIndex = lvlList.Count - 1;
                     }
                 }
             }
 
-            if (blocks[0].GetType().Name == "ConditionBlock")
+            if (GetBlockType(blocks[0]) == "Condition")
             {
-                ConditionBlock cb = blocks[0] as ConditionBlock;
-
-                // First check if any variables here are stored
-                if (cb.Left.Type == ValueType.STRING)
-                    cb.Left = (vals.ContainsKey(cb.Left.STRING))?vals[cb.Left.STRING]:cb.Left;
-
-                if (cb.Right.Type == ValueType.STRING)
-                    cb.Right = (vals.ContainsKey(cb.Right.STRING)) ? vals[cb.Right.STRING] : cb.Right;
-
-                // Good, now we check if its an integer, we raise it to the next highest type (Float/Double -> REAL)
-                if (cb.Left.Type == ValueType.INTEGER)
-                    cb.Left = cb.Left.Convert(ValueType.REAL);
-
-                if (cb.Right.Type == ValueType.INTEGER)
-                    cb.Right = cb.Right.Convert(ValueType.REAL);
-
-                return DoExpr(cb.Left, cb.CompareOp, cb.Right);
+                return CondEval(blocks[0], notWrapper, vals);
             }
-            else if(blocks[0].GetType().Name == "FuncBlock")
+            else if (GetBlockType(blocks[0]) == "Function")
             {
-                FuncBlock fb = blocks[0] as FuncBlock;
-
-                //TODO: ID array of args (Only single args at the moment)
-                string args;
-
-                if (fb.Args.Length == 1)
-                {
-                    args = fb.Args[0];
-                    args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
-                }
-                else
-                {
-                    args = string.Join(",", fb.Args);
-                    throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
-                }
-
-                return FuncExtensions(fb.FunctionName, args, vals);
+                return FuncEval(blocks[0], notWrapper, vals);
             }
             else
                 return blocks[0].Value;
@@ -732,7 +762,81 @@ namespace HaggisInterpreter2
 
         }
 
-        private static Value FuncExtensions(string function, string expression, Dictionary<string, Value> vals)
+        private static string GetBlockType(IBlock block)
+        {
+            return block.GetType().Name switch
+            {
+                "ConditionBlock" => "Condition",
+                "FuncBlock" => "Function",
+                _ => string.Empty,
+            };
+        }
+
+        private static Value FuncEval(IBlock block, bool isNotOperator, Dictionary<string, Value> vals)
+        {
+            FuncBlock fb = block as FuncBlock;
+
+            //TODO: ID array of args (Only single args at the moment)
+            string args;
+
+            if (fb.Args.Length == 1)
+            {
+                args = fb.Args[0];
+                args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
+            }
+            else
+            {
+                //args = string.Join(",", fb.Args);
+                throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
+            }
+
+            if (isNotOperator)
+            {
+                Value eval = FuncExtensions(fb.FunctionName, args);
+
+                if (eval.Type != ValueType.BOOLEAN)
+                    throw new Exception($"Cannot use the NOT wrapper with {eval.Type}");
+
+                eval.BOOLEAN = !eval.BOOLEAN;
+                return eval;
+            }
+
+            return FuncExtensions(fb.FunctionName, args);
+        }
+
+        private static Value CondEval(IBlock block, bool isNotOperator, Dictionary<string, Value> vals)
+        {
+            ConditionBlock cb = block as ConditionBlock;
+
+            // First check if any variables here are stored
+            if (cb.Left.Type == ValueType.STRING)
+                cb.Left = (vals.ContainsKey(cb.Left.STRING)) ? vals[cb.Left.STRING] : cb.Left;
+
+            if (cb.Right.Type == ValueType.STRING)
+                cb.Right = (vals.ContainsKey(cb.Right.STRING)) ? vals[cb.Right.STRING] : cb.Right;
+
+            // Good, now we check if its an integer, we raise it to the next highest type (Float/Double -> REAL)
+            if (cb.Left.Type == ValueType.INTEGER)
+                cb.Left = cb.Left.Convert(ValueType.REAL);
+
+            if (cb.Right.Type == ValueType.INTEGER)
+                cb.Right = cb.Right.Convert(ValueType.REAL);
+
+            if (isNotOperator)
+            {
+                Value eval = DoExpr(cb.Left, cb.CompareOp, cb.Right);
+
+                if (eval.Type != ValueType.BOOLEAN)
+                    throw new Exception($"Cannot use the NOT wrapper with {eval.Type}");
+
+                eval.BOOLEAN = !eval.BOOLEAN;
+                return eval;
+            }
+
+            return DoExpr(cb.Left, cb.CompareOp, cb.Right);
+        }
+
+        private static Value FuncExtensions(string function, string expression)
         {
             //var exp = PerformExpression(vals, expression);
 

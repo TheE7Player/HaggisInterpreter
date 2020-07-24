@@ -5,12 +5,13 @@ namespace HaggisInterpreter2
 {
     public partial class Interpreter
     {
+        #region Logic
         private bool MoreThanOneFunction(string input)
         {
             var validFunctions = new string[] { "DECLEAR", "SET", "SEND", "RECEIVE" };
             var inArr = input.Trim().Split();
             var count = inArr.Count(x => validFunctions.Contains(x));
-            return (count > 1) ? true : false;
+            return (count > 1);
         }
 
         private bool _execute(string[] executionLine)
@@ -36,6 +37,14 @@ namespace HaggisInterpreter2
 
                 case "IF":
                     If(joinedExpression);
+                    return false;
+
+                case "REPEAT":
+                    Loop(true);
+                    return false;
+
+                case "WHILE":
+                    Loop(false);
                     return false;
 
                 default:
@@ -77,12 +86,12 @@ namespace HaggisInterpreter2
 
         public void Execute()
         {
-            var Exit = false;
+            bool Exit = false;
 
             if (callStack.Count == 0)
                 callStack.Push("script run");
 
-            string line = string.Empty;
+            string line;
             while ((line = GetNextLine()) != null)
             {
                 Exit = _execute(line.Split());
@@ -118,6 +127,10 @@ namespace HaggisInterpreter2
             executionHandled = true;
             throw new Exception(message);
         }
+
+        #endregion
+
+        #region Keywords Functionality
 
         /// <summary>
         /// Method to assign a variable, either from SET or DECLEAR declaration
@@ -183,8 +196,7 @@ namespace HaggisInterpreter2
                     }
                     else if (var_type == "INTEGER")
                     {
-                        int i;
-                        if (Int32.TryParse(information[5], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out i))
+                        if (Int32.TryParse(information[5], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int i))
                         {
                             value = new Value(i);
                         }
@@ -197,8 +209,7 @@ namespace HaggisInterpreter2
                     }
                     else if (var_type == "REAL")
                     {
-                        double i;
-                        if (Double.TryParse(information[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out i))
+                        if (Double.TryParse(information[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double i))
                         {
                             value = new Value(i);
                         }
@@ -211,8 +222,7 @@ namespace HaggisInterpreter2
                     }
                     else if (var_type == "BOOLEAN")
                     {
-                        bool r;
-                        if (Boolean.TryParse(information[5], out r))
+                        if (Boolean.TryParse(information[5], out bool r))
                         {
                             value = new Value(r);
                         }
@@ -246,14 +256,12 @@ namespace HaggisInterpreter2
                 if (!variables.ContainsKey(information[1]))
                 {
                     variables.Add(name, new Value(result));
-                    name = null;
-                    express = null;
+                    name = null; express = null;
                 }
                 else
                 {
                     variables[name] = new Value(result);
-                    name = null;
-                    express = null;
+                    name = null; express = null;
                 }
             }
         }
@@ -262,7 +270,7 @@ namespace HaggisInterpreter2
         {
             string[] ex = Expression.Evaluate(express);
 
-            bool endsCorrectly = (ex[ex.Length - 2] == "TO" && ex[ex.Length - 1] == "DISPLAY") ? true : false;
+            bool endsCorrectly = (ex[ex.Length - 2] == "TO" && ex[ex.Length - 1] == "DISPLAY");
 
             if (!endsCorrectly)
             {
@@ -277,7 +285,7 @@ namespace HaggisInterpreter2
             var exp = Expression.PerformExpression(this.variables, express);
 
             if (_flags.DebugSendRequests)
-                Console.WriteLine($"LINE {this.line}: {exp.ToString()}");
+                Console.WriteLine($"LINE {this.line}: {exp}");
             else
                 Console.WriteLine(exp.ToString());
         }
@@ -314,7 +322,7 @@ namespace HaggisInterpreter2
             // Add the variable in if it hasn't already
             if (!variables.ContainsKey(varName)) variables.Add(varName, new Value(DefaultVal[varType]));
 
-            if (!Object.ReferenceEquals(_flags.Inputs, null))
+            if (!(_flags.Inputs is null))
             {
                 if (_flags.Inputs.ContainsKey(varName))
                     input = _flags.Inputs[varName];
@@ -339,9 +347,8 @@ namespace HaggisInterpreter2
 
             if (varType == "REAL")
             {
-                double d;
                 // try to parse as double, if failed read value as string
-                if (double.TryParse(input, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d))
+                if (double.TryParse(input, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d))
                     variables[varName] = new Value(d);
                 else
                 {
@@ -352,8 +359,7 @@ namespace HaggisInterpreter2
 
             if (varType == "INTEGER")
             {
-                int i;
-                if (int.TryParse(input, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out i))
+                if (int.TryParse(input, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int i))
                     variables[varName] = new Value(i);
                 else
                 {
@@ -364,16 +370,7 @@ namespace HaggisInterpreter2
         }
 
         private void If(string expression)
-        {
-            /* if (!information[2].Equals("AS"))
-             {
-                 Column = GetColumnFault(information[2]);
-                 Error($"PATTERN FAULT: Pattern for [DECLEAR] should have followed [AS] but got: {information[2]} instead!", information[2]);
-                 return;
-             }*/
-
-            // Valdiate if the IF statement is in one line (Horizontal IF statement)
-
+        {       
             #region Verticle If Statement
 
             if (expression.StartsWith("IF") && expression.EndsWith("END IF") && expression.Contains("THEN"))
@@ -468,11 +465,104 @@ namespace HaggisInterpreter2
                         _execute(_l.Trim().Split());
                     }
 
-                    while ((_l = GetNextLine()) != "END IF") { }
+                    while ((_ = GetNextLine()) != "END IF") { }
                 }
             }
 
             #endregion Horizontal If Statement
         }
+
+        private void Loop(bool isRepeatLoop = true)
+        {
+
+            int iterStart = line;
+            string condition = string.Empty;
+
+            bool Exit = false;
+
+            if(isRepeatLoop)
+            {
+                // REPEAT loop
+                string _line;
+                while ((_line = GetNextLine()) != null)
+                {
+                    if (_line.StartsWith("UNTIL"))
+                    {
+                        if(object.ReferenceEquals(condition, string.Empty))
+                            condition = _line.Substring(6);
+
+                        Value result = Expression.PerformExpression(variables, condition);
+
+                        if (!result.BOOLEAN)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            line = iterStart;
+                            Line = line;
+                        }
+                    }
+                    else 
+                    {  
+                        Exit = _execute(_line.Split());
+
+                        if (Exit)
+                            break;
+                    }
+                }              
+            }
+            else
+            {
+                // WHILE loop
+                string _line;
+
+                if (!(file[line - 1].EndsWith("DO")))
+                {
+                    if(!(file[line - 1].StartsWith("DO")))
+                    {
+                        var words = file[line - 1].Split();
+                        Column = GetColumnFault(words[words.Length - 1]);
+                        Error("Missing expression ender for WHILE loop - Please a 'DO' after expression", words[words.Length - 1]);
+                    }
+                }
+
+                condition = file[line-1].Substring(6);
+                condition = condition.Substring(0, condition.Length - 2).Trim();
+
+                Value result = Expression.PerformExpression(variables, condition);
+
+                if (!result.BOOLEAN)
+                    return;
+
+                while ((_line = GetNextLine()) != null)
+                {
+                    if (_line.StartsWith("END WHILE"))
+                    {
+                        result = Expression.PerformExpression(variables, condition);
+
+                        if (!result.BOOLEAN)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            line = iterStart;
+                            Line = line;
+                        }
+                    }
+                    else
+                    {
+                        Exit = _execute(_line.Split());
+
+                        if (Exit)
+                            break;
+                    }
+                }
+            }
+
+        }
+
+        #endregion
     }
 }
