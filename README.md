@@ -38,9 +38,9 @@ The current scripts runs without any errors:
 |     Input.haggis     | ✔️ ( **Since v0.2** )  |
 |  Manual Set.haggis   | ✔️ ( **Since v0.2** )  |
 | Normal Test 1.haggis | ✔️ ( **Since v0.1** )  |
-|  RepeatLoop.haggis   | ✔️ ( **Since v0.7 **)  |
+|  RepeatLoop.haggis   | ✔️ ( **Since v0.7** )  |
 | StrFunctions.haggis  | ✔️ ( **Since v0.6** )  |
-|   WhileLoop.haggis   | ✔️ ( **Since v0.7 **)  |
+|   WhileLoop.haggis   | ✔️ ( **Since v0.7** )  |
 
 ------
 
