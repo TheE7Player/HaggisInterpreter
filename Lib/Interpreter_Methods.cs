@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 
 namespace HaggisInterpreter2
 {
@@ -14,9 +16,93 @@ namespace HaggisInterpreter2
             return (count > 1);
         }
 
+        private Value? RunMacro (Value call, bool returnValueBack)
+        {
+            Value funcReturn = new Value();
+
+            if (call.OTHER is null)
+                throw new Exception();
+
+            if (call.OTHER.StartsWith("FN-"))
+            {
+                var fn_ref = function.Keys.First(x => x.Name == call.OTHER.Substring(3));
+
+                callStack.Push(fn_ref.Name);
+
+                int normalLine = line;
+
+                int StartAt = function[fn_ref];
+                int EndAt = fn_ref.FunctionEnd;
+
+                var _variables = fn_ref.ArgValues;
+
+                foreach (var item in _variables) { this.variables.Add(item.Key, item.Value); }
+
+                string _line;
+                bool Exit = false;
+                string end_cond = (fn_ref.type == FuncMetaData.Type.FUNCTION) ? "END FUNCTION" : "END PROCEDURE";
+
+                for (int i = StartAt; i <= EndAt; i++)
+                {
+                    if ((_line = GetNextLine((i - 1))) != null)
+                    {
+                        if (Exit || _line.Trim().StartsWith(end_cond))
+                            break;
+
+                        if (string.IsNullOrEmpty(_line))
+                            continue;
+
+                        if (fn_ref.type == FuncMetaData.Type.FUNCTION) 
+                        { 
+                            if (_line.Trim().StartsWith("RETURN") || variables.ContainsKey("RETURNVAL"))
+                            {
+                                Exit = true;
+
+                                // There is a chance where a function may only have a one line return
+                                // In this case, we need to call first
+                                if(!variables.ContainsKey("RETURNVAL"))
+                                    Exit = _execute(_line.Split());
+
+                                funcReturn = variables["RETURNVAL"];
+                                variables.Remove("RETURNVAL");
+
+                                if(funcReturn.Type != fn_ref.returnType)
+                                {
+                                    try
+                                    {
+                                        // Safe covert back to desired data type
+                                        funcReturn = funcReturn.Convert(fn_ref.returnType);
+                                    }
+                                    catch (Exception)
+                                    {
+                                        // Problem - oh well :(
+                                        Error($"FUNCTION IS SET TO RETURN '{fn_ref.returnType}' BUT GOT '{funcReturn.Type}' WITH RETURN!", _line);
+                                    }
+                                }
+
+                                break;
+                            }
+                        }
+                        
+                        Exit = _execute(_line.Split());                
+                    }
+                }
+                _line = null;
+                foreach (var item in _variables) { this.variables.Remove(item.Key); }
+                callStack.Pop();
+                line = normalLine;
+
+                if (fn_ref.type == FuncMetaData.Type.FUNCTION)
+                    return funcReturn;
+                else
+                    return null;
+            }
+            return null;
+        }
+
         private bool _execute(string[] executionLine)
         {
-            string joinedExpression = String.Join(" ", executionLine);
+            string joinedExpression = string.Join(" ", executionLine);
             switch (executionLine[0])
             {
                 case "DECLEAR":
@@ -47,9 +133,42 @@ namespace HaggisInterpreter2
                     Loop(false);
                     return false;
 
+                case "PROCEDURE":
+                    Function(joinedExpression);
+                    return false;
+
+                case "FUNCTION":
+                    Function(joinedExpression, false);
+                    return false;
+
                 default:
+
+                    if (string.IsNullOrEmpty(joinedExpression))
+                        return false;
+
+                    if(executionLine[0] == "RETURN")
+                    {
+                        var ep = string.Join(" ", executionLine.Skip(1));
+                        var result = Expression.PerformExpression(variables, ep);
+                        variables.Add("RETURNVAL", result);
+                        return true;
+                    }
+
+                    try
+                    {
+                        var attempt = Expression.PerformExpression(variables, joinedExpression);
+
+                        RunMacro(attempt, false);
+
+                        return false;
+                    }
+                    catch (Exception _)
+                    {
+                        Error(_.Message, joinedExpression);
+                        return true;
+                    }
                     Error($"Expected a keyword, but got: {executionLine[0]} instead!", executionLine[0]);
-                    return true;
+                    return true;       
             }
         }
 
@@ -103,7 +222,7 @@ namespace HaggisInterpreter2
             callStack.Pop();
         }
 
-        private int GetColumnFault(string toFind)
+        internal static int GetColumnFault(string toFind)
         {
             try
             {
@@ -115,7 +234,7 @@ namespace HaggisInterpreter2
             }
         }
 
-        internal void Error(string message, string fault)
+        public static void Error(string message, string fault)
         {
             /* Order:
                 [0] = Line fault
@@ -123,12 +242,62 @@ namespace HaggisInterpreter2
                 [2] = Length of fault
             */
             int columnFault = GetColumnFault(fault);
-            this.errorArea = new int[] { line, columnFault, fault.Length };
+            errorArea = new int[] { line, columnFault, fault.Length };
             executionHandled = true;
             throw new Exception(message);
         }
 
         #endregion
+
+        private Value SetDefaultOrValid(string value, string target)
+        {
+            if(string.IsNullOrEmpty(value))
+            {
+                return new Value(DefaultVal[target]);
+            }
+
+            if (target == "STRING" || target == "CHAR")
+            {
+                return (target == "STRING") ? new Value(value) : new Value((value.ToCharArray()[0]));
+            }
+            else if (target == "INTEGER")
+            {
+                if (Int32.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int i))
+                {
+                    return new Value(i);
+                }
+                else
+                {
+                    Column = GetColumnFault(value);
+                    Error($"ASSIGN TYPE FAULT: Failed to assign an INTEGER operation with: {value}!", value);
+                }
+            }
+            else if (target == "REAL")
+            {
+                if (Double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double i))
+                {
+                    return new Value(i);
+                }
+                else
+                {
+                    Column = GetColumnFault(value);
+                    Error($"ASSIGN TYPE FAULT: Failed to assign an REAL operation with: {value}!", value);
+                }
+            }
+            else if (target == "BOOLEAN")
+            {
+                if (Boolean.TryParse(value, out bool r))
+                {
+                    return new Value(r);
+                }
+                else
+                {
+                    Column = GetColumnFault(value);
+                    Error($"ASSIGN TYPE FAULT: Failed to assign an BOOLEAN operation with: {value}!", value);
+                }
+            }
+            return Value.Zero;
+        }
 
         #region Keywords Functionality
 
@@ -139,6 +308,7 @@ namespace HaggisInterpreter2
         /// <param name="isGlobal">True if 'DECLEAR', False if 'SET'</param>
         private void Declear(string[] information, bool isGlobal)
         {
+
             if (isGlobal)
             {
                 // Method is "DELCEAR"
@@ -187,56 +357,25 @@ namespace HaggisInterpreter2
                         Column = GetColumnFault(express);
                         var result = Expression.PerformExpression(this.variables, express);
                         variables.Add(var_name, result);
+                        SendSocketMessage("variable_decl", $"{var_name}|{result}");
                         return;
                     }
 
-                    if (var_type == "STRING" || var_type == "CHAR")
-                    {
-                        value = (var_type == "STRING") ? new Value(information[5]) : new Value((information[5].ToCharArray()[0]));
-                    }
-                    else if (var_type == "INTEGER")
-                    {
-                        if (Int32.TryParse(information[5], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int i))
-                        {
-                            value = new Value(i);
-                        }
-                        else
-                        {
-                            Column = GetColumnFault(information[5]);
-                            Error($"ASSIGN TYPE FAULT: Failed to assign an INTEGER operation with: {information[5]}!", information[5]);
-                            return;
-                        }
-                    }
-                    else if (var_type == "REAL")
-                    {
-                        if (Double.TryParse(information[5], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double i))
-                        {
-                            value = new Value(i);
-                        }
-                        else
-                        {
-                            Column = GetColumnFault(information[5]);
-                            Error($"ASSIGN TYPE FAULT: Failed to assign an REAL operation with: {information[5]}!", information[5]);
-                            return;
-                        }
-                    }
-                    else if (var_type == "BOOLEAN")
-                    {
-                        if (Boolean.TryParse(information[5], out bool r))
-                        {
-                            value = new Value(r);
-                        }
-                        else
-                        {
-                            Column = GetColumnFault(information[5]);
-                            Error($"ASSIGN TYPE FAULT: Failed to assign an BOOLEAN operation with: {information[5]}!", information[5]);
-                            return;
-                        }
-                    }
+                    value = SetDefaultOrValid(express, exp_type.ToString());
                 }
 
                 // Now we assign it
+
+                if (variables.ContainsKey(information[1])) 
+                {
+                    var t = variables[information[1]].Type;
+
+                    if( t != value.Type )
+                        Interpreter.Error($"VARIABLE {information[1]} ALREADY EXISTS/DECLARED", information[1]); 
+                }
+
                 variables.Add(var_name, value);
+                SendSocketMessage("variable_decl", $"{var_name}|{value}");
             }
             else
             {
@@ -255,12 +394,41 @@ namespace HaggisInterpreter2
 
                 if (!variables.ContainsKey(information[1]))
                 {
+                    if(!ReferenceEquals(result.OTHER, null))
+                    {
+                        if(result.OTHER.StartsWith("FN-"))
+                        {
+                            Value? r = RunMacro(result, true);
+
+                            if (!ReferenceEquals(r, null))
+                                result = (Value)r;
+                        }
+                    }
+
+                    if (variables.ContainsKey(information[1]))
+                    {
+                        var t = variables[information[1]].Type;
+
+                        if (t != result.Type)
+                            Interpreter.Error($"VARIABLE {information[1]} ALREADY EXISTS/DECLARED (ASSIGNING AS '{result.Type}' INSTEAD OF '{t}')", information[1]);
+                    }
+
                     variables.Add(name, new Value(result));
+
+                    SendSocketMessage("variable_decl", $"{name}|{result}");
                     name = null; express = null;
                 }
                 else
                 {
+                    if (variables.ContainsKey(name))
+                    {
+                        var t = variables[name].Type;
+
+                        if (t != result.Type)
+                            Interpreter.Error($"VARIABLE {information[1]} ALREADY EXISTS/DECLARED (ASSIGNING AS '{result.Type}' INSTEAD OF '{t}')", information[1]);
+                    }
                     variables[name] = new Value(result);
+                    SendSocketMessage("variable_decl", $"{name}|{result}");
                     name = null; express = null;
                 }
             }
@@ -268,9 +436,9 @@ namespace HaggisInterpreter2
 
         private void Send(string express)
         {
-            string[] ex = Expression.Evaluate(express);
+            string[] ex = Expression.Evaluate(express).Select(f=>f.Trim()).ToArray();
 
-            bool endsCorrectly = (ex[ex.Length - 2] == "TO" && ex[ex.Length - 1] == "DISPLAY");
+            bool endsCorrectly = ((ex[ex.Length - 2] == "TO" && ex[ex.Length - 1] == "DISPLAY") || ex[ex.Length - 1] == "TO DISPLAY");
 
             if (!endsCorrectly)
             {
@@ -284,10 +452,19 @@ namespace HaggisInterpreter2
             Column = GetColumnFault(express);
             var exp = Expression.PerformExpression(this.variables, express);
 
+            if(!(exp.OTHER is null))
+            if(exp.OTHER.StartsWith("FN-"))
+            {
+                var r = RunMacro(exp, true);
+
+                if (!(r is null))
+                    exp = (Value)r;
+            }
+
             if (_flags.DebugSendRequests)
-                Console.WriteLine($"LINE {this.line}: {exp}");
+                Log($"LINE {line}: {exp}");
             else
-                Console.WriteLine(exp.ToString());
+                Log(exp.ToString());
         }
 
         private void Receive(string express)
@@ -332,8 +509,10 @@ namespace HaggisInterpreter2
                     Error($"{varName} isn't decleared or exists at time of execution", varName);
                 }
             }
-            else
-                input = Console.ReadLine();
+            else 
+            {
+                input = Input();
+            }
 
             if (varType == "STRING")
             {
@@ -364,9 +543,31 @@ namespace HaggisInterpreter2
                 else
                 {
                     Column = GetColumnFault(input);
-                    Error($"ERROR: EXPECTED REAL, GOT {input} INSTEAD", input);
+                    Error($"ERROR: EXPECTED INTEGER, GOT {input} INSTEAD", input);
                 }
             }
+
+            if(varType == "BOOLEAN")
+            {
+                if(!(input != "TRUE" || input != "FALSE"))
+                {
+                    Column = GetColumnFault(input);
+                    Error($"ERROR: EXPECTED BOOLEAN, GOT {input} INSTEAD. MAKE SURE IT'S EITHER 'TRUE' OR 'FALSE' IN CAPS LOCK - 'true' OR 'false' IS INVALID.", input);
+                }
+
+                switch (input)
+                {
+                    case "TRUE":
+                        variables[varName] = new Value(true);
+                        break;
+
+                    case "FALSE":
+                        variables[varName] = new Value(false);
+                        break;
+                }
+            }
+
+            SendSocketMessage("variable_inpt", $"{varName}|{input}");
         }
 
         private void If(string expression)
@@ -438,9 +639,12 @@ namespace HaggisInterpreter2
                 if (result.BOOLEAN == false)
                 {
                     // Skip the lines till we hit 'ELSE'
-                    string _l;
-                    while (!(_l = GetNextLine()).Contains("ELSE")) { }
+                    bool endHit = false;
 
+                    string _l;
+                    while (!(_l = GetNextLine()).Contains("ELSE")) { if (_l.Contains("END IF")) { endHit = true; break; } }
+
+                    if(!endHit)
                     if (_l.StartsWith("ELSE IF"))
                     {
                         _execute(_l.Trim().Substring(5).Split());
@@ -449,8 +653,9 @@ namespace HaggisInterpreter2
                     {
                         while ((_l = GetNextLine()) != "END IF")
                             _execute(_l.Trim().Split());
-
-                        GetNextLine();
+                        
+                        //TODO: Why was this line added in the first place?!
+                        //GetNextLine(); 
                     }
                 }
                 else
@@ -561,6 +766,95 @@ namespace HaggisInterpreter2
                 }
             }
 
+        }
+
+        private void Function(string express, bool isProcedure = true)
+        {
+            string[] _dmeta = Expression.Evaluate(express);
+            string funcName = _dmeta[1];
+
+            express = express.Substring(express.IndexOf('(') + 1);
+            express = express.Substring(0, express.IndexOf(')'));
+
+            var _var = express.Split(',').Select(_ => _.Trim()).ToArray();
+
+            Value val;
+            List<string> pTypes = new List<string>(1);
+            Dictionary<string, Value> argVal = new Dictionary<string, Value>(1);
+
+            foreach (var param in _var)
+            {
+                var data = param.Split(' ');
+
+                if (!validTypes.Contains(data[0]))
+                    Error("Unkown Data type given", param);
+
+                val = SetDefaultOrValid("", data[0]);
+                pTypes.Add(data[0]);
+                argVal.Add(data[1], val);
+            }
+
+            if (!isProcedure)
+            {
+                if (_dmeta[_dmeta.Length - 2] != "RETURNS")
+                {
+                    int funcEnd = _dmeta.ToList().IndexOf(")");
+                    string[] newMeta = new string[funcEnd];
+                    Array.Copy(_dmeta, 1, newMeta, 0, funcEnd);
+                    string func = string.Join(" ", newMeta);
+                    string procedure_name = $"PROCEDURE {func}";
+                    Error($"DECLEARLESS FUNCTION, ADD A RETURN TYPE OR CHANGE IT TO A PROCEDURE INSTEAD -> {procedure_name} ", _dmeta[_dmeta.Length - 2]);
+                }
+
+                if (!validTypes.Contains(_dmeta[_dmeta.Length - 1]))
+                {
+                    Error($"UNKNOWN RETURN TYPE FOR THIS FUNCTION: { _dmeta[_dmeta.Length - 1]}", _dmeta[_dmeta.Length - 1]);
+                }
+
+                Enum.TryParse<ValueType>(_dmeta[_dmeta.Length - 1], out ValueType _t);
+
+                function.Add(new FuncMetaData
+                {
+                    Name = funcName,
+                    type = FuncMetaData.Type.FUNCTION,
+                    ArgTypes = pTypes.ToArray(),
+                    returnType = _t,
+                    ArgValues = argVal
+                }, line + 1);
+
+            }
+            else 
+            { 
+                function.Add(new FuncMetaData
+                {
+                    Name = funcName,
+                    type = FuncMetaData.Type.PROCEDURE,
+                    ArgTypes = pTypes.ToArray(),
+                    ArgValues = argVal
+                }, line + 1); 
+            }
+
+            pTypes = null; argVal = null; _var = null; _dmeta = null;
+
+            string _line = "";
+            string cmp_line = (isProcedure) ? "END PROCEDURE" : "END FUNCTION";
+            while ((_line = GetNextLine()) != null)
+            {
+                if (_line.StartsWith(cmp_line))
+                {
+                    var k = function.First(x => x.Key.Name == funcName).Key;
+                    var v = function.First(x => x.Key.Name == funcName).Value;
+                    function.Remove(k);
+
+                    k.FunctionEnd = line;
+                    function.Add(k, v);
+                    break;
+                }
+            }
+
+            SendSocketMessage("func_dlcr", $"{funcName}|{(isProcedure?'P':'F')}");
+            funcName = null;
+            GC.Collect();
         }
 
         #endregion

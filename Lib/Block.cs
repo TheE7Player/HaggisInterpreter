@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace HaggisInterpreter2
 {
@@ -101,15 +102,25 @@ namespace HaggisInterpreter2
         public string FunctionName { get; set; }
         public int OrderLevel { get; set; }
         public int OrderNumber { get; set; }
+
     }
 
     #endregion
 
     public static class BlockParser
-    {     
+    {
+        private static int FindLastChar(string[] ch, string target)
+        {
+            for (int i = ch.Length - 1; i >= 0; i--)
+            {
+                if (ch[i] == target)
+                    return i;
+            }
+            return -1;
+        }
         private static bool CanLookAhead(int current, int len) => ((current + 1) < len); //=> ((current + 1) < len) ? true : false;
         public static List<IBlock> GenerateBlocks(string[] expr, Dictionary<string, Value> vals)
-        {
+        {          
             // Holds the current order level (used for calculations or expressions)
             int orderLevel = 0;
 
@@ -128,7 +139,7 @@ namespace HaggisInterpreter2
 
             var _list = new List<IBlock>(2);
             int max_len = expr.Length;
-            
+
             //string express = String.Join(" ", expr);
 
             for (int i = 0; i < max_len; i++)
@@ -136,38 +147,104 @@ namespace HaggisInterpreter2
                 // Look ahead for a function block?
                 if (CanLookAhead(i, max_len))
                 {
-                    if(expr[i + 1] == "(")
+                    if (expr[i + 1] == "(")
                     {
                         var func_name = expr[i];
                         i++;
                         // Check if the function carries over any params
                         if (CanLookAhead(i + 1, max_len))
                         {
-                            if( expr[i + 1] == ")" )
+                            if (expr[i + 1] == ")")
                             {
                                 i += 2;
-                                _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = null, OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count } );
+                                _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = null, OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count });
                                 orderLevel++;
                                 continue;
                             }
 
                             i++;
                             List<string> args = new List<string>();
+                            string parameters = string.Join(" ", expr);
+                            int paramStart = parameters.IndexOf('(')+1;
+                            int paramEnd = parameters.LastIndexOf(')');
+                            parameters = parameters.Substring(paramStart, paramEnd - paramStart).Trim();
+
+                            var new_arr = Expression.Evaluate(parameters);
+                            char[] fix;
+                            var new_expr = expr.ToList();
+                            int currIndex = 0;
+                            for (int z = 0; z < new_arr.Length; z++)
+                            {
+                                currIndex = new_expr.IndexOf(new_arr[z]);
+                                fix = new_arr[z].ToCharArray();
+                                if (fix[fix.Length - 1] == ',' && fix.Length>1)  
+                                { 
+                                    Array.Resize(ref fix, fix.Length - 1);
+                                    new_expr[currIndex] = new string(fix);
+                                    new_expr.Insert(currIndex + 1, ",");    
+                                }
+                            }
+
+                            new_arr = null;
+                            parameters = null;
+                            fix = null;
+
+                            expr = new_expr.ToArray();
+                            max_len = expr.Length;
+                            new_expr = null;
+
+                            var arg_sb = new StringBuilder();
+                            int last_bracket = FindLastChar(expr, ")");
+                            try
+                            {
+                                if (expr[last_bracket] != ")")
+                                    throw new Exception();
+                            }
+                            catch (Exception)
+                            {
+                                Console.WriteLine("MISSING OR WRONG BALANCE OF BRACKETS FOR EXPRESSION FOR ARGUMENT", expr[i]);
+                            }
+                            
+
                             while (i < max_len)
                             {
-                                if (expr[i] == ")")
-                                    break;
+                                if (expr[i] == ")")                                                        
+                                {
+                                    if (!(i == expr.Length - 1 || Expression.validOperations.Contains((expr[i + 1][0]))))
+                                        continue;
+
+                                    if (i != last_bracket)
+                                    { i++; continue; }
+
+                                    if(arg_sb.Length > 0)
+                                    {
+                                        args.Add(arg_sb.ToString().Trim());
+                                        arg_sb.Clear();
+                                        i++;
+                                    }
+                                    break; 
+                                }
                                 else
                                     i++;
 
-                                if (expr[i] == ",")
+                                if (arg_sb.Length == 0)
+                                    arg_sb.Append(expr[i - 1]);
+                                else
                                 {
-                                    i++; continue;
+                                    if(double.TryParse(expr[i - 1], out double _))
+                                        arg_sb.Append(expr[i - 1]);
+                                    else
+                                        arg_sb.Append($" {expr[i - 1]}");
                                 }
 
-                                args.Add(expr[i - 1]);
+                                if (expr[i] == "," || i == expr.Length - 1)
+                                {
+                                    args.Add(arg_sb.ToString().Trim());
+                                    arg_sb.Clear();
+                                    i++; continue;
+                                }
                             }
-                            
+
                             //TODO: Why add 2 here?!
                             //i += 2;
                             _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = args.ToArray(), OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count });
@@ -175,11 +252,18 @@ namespace HaggisInterpreter2
                             i--;
                             continue;
                         }
+                        else
+                        {
+                            if(expr[i + 1] == ")")
+                            {
+                                _list.Add(new FuncBlock { FunctionName = func_name, Value = Value.Zero, Args = null, OrderLevel = orderLevel, blockType = BlockType.Function, OrderNumber = _list.Count });
+                            }
+                        }
                     }
                 }
 
                 // The second expression prevents ')' from being excluded if it was a string ('&') concat...
-                if(expr[i] == "(" || (expr[i] == ")" && expr[i - 1] != "&"))
+                if (expr[i] == "(" || (expr[i] == ")" && expr[i - 1] != "&"))
                 {
                     orderLevel = (expr[i] == "(") ? orderLevel += 1 : orderLevel -= 1;
                     continue;
@@ -187,20 +271,36 @@ namespace HaggisInterpreter2
 
                 // Get the value type
                 Value _val = new Value(expr[i], true);
+
                 string op = string.Empty;
                 // Get the binary operator (if any)
                 if (CanLookAhead(i + 1, max_len))
+                {
+                    // Prevents issues with code below if the so called index was empty
+                    if (!string.IsNullOrEmpty(expr[i + 1]))                                  
                     if (Expression.validOperations.Contains(expr[i + 1][0]))
                     {
                         if (expr[i + 1] != ")")
-                        { 
+                        {
                             i++;
                             op = expr[i];
+
+                            // Combine if !=
+                            if(CanLookAhead(i + 1, max_len))
+                            {
+                                string op_concat = $"{op}{expr[i + 1]}";
+                                if(op_concat == "!=" || op_concat == "<>")
+                                {
+                                    i++;
+                                    op = "!=";
+                                }                                                             
+                            }
                         }
-                    }
+                    } 
+                }
 
                 // Append the op block itself it there isnt (Could be caused by a function etc)
-                if(object.ReferenceEquals(op, string.Empty) && Expression.validOperations.Contains(_val.ToString()[0]))
+                if(object.ReferenceEquals(op, string.Empty) && Expression.validOperations.Contains(_val.ToString()[0]) && i != expr.Length - 1)
                 {
                     char subject = _val.ToString()[0];
                     if ((subject == '(' || subject == ')') && expr[i - 1] != "&")
@@ -213,26 +313,47 @@ namespace HaggisInterpreter2
                 // Amend the information now
                 BlockType bType = BlockType.Literal;
 
-                if(vals.ContainsKey((op != String.Empty) ? expr[i-1] : expr[i]))
-                    bType = BlockType.Variable;
-                else
+                if (!(vals is null))
                 {
-                    if(_val.Type == ValueType.STRING || _val.Type == ValueType.CHARACTER)
-                        bType = BlockType.Text;
-
-                    if (expr[i].Length == 1 && _val.Type == ValueType.CHARACTER && expr[i - 1] != "&")
-                        if (Expression.validOperations.Contains(_val.CHARACTER))
-                            bType = BlockType.BinOp;
+                    if (vals.ContainsKey((op != String.Empty) ? expr[i - 1] : expr[i]))
+                        bType = BlockType.Variable;
                 }
 
+                if ((_val.Type == ValueType.STRING || _val.Type == ValueType.CHARACTER) && bType != BlockType.Variable)
+                    bType = BlockType.Text;
+
+                // Check 1
+                if((i - 1) > 1)
+                if (expr[i].Length == 1 && _val.Type == ValueType.CHARACTER && expr[i - 1] != "&")
+                {
+                    if (Expression.validOperations.Contains(_val.CHARACTER) && op is null)
+                        bType = BlockType.BinOp;
+                }
+
+                // Check 2
+                if ((expr[i].Length == 1 && _val.ToString().Length == 1) && Expression.validOperations.Contains(_val.ToString()[0]))
+                {
+                    // Check 3 - Test if '&' op is in play
+                    if(op != "&")
+                        bType = BlockType.BinOp;
+                }
+                
 
                 if (Expression.validComparisons.Contains(expr[i]))
                 {
+                    int safeIndex = (i + 1 < expr.Length - 1) ? i + 1 : i;
+
+                    if(safeIndex == expr.Length - 1)
+                    {
+                        bType = BlockType.Text;
+                    }
+                    else
                     try
                     {
                         if (!(_list[_list.Count - 1].GetType().Name == "FuncBlock"))
                         {
-                            _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[i + 1], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
+                            
+                            _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[safeIndex], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
                             i += 1;
                             if (CanLookAhead(i + 1, max_len))
                             {
@@ -247,9 +368,9 @@ namespace HaggisInterpreter2
                             continue;
                         }
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
-                        _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[i + 1], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
+                        _list.Add(new ConditionBlock { blockType = BlockType.Expression, Value = Value.Zero, CompareOp = op, Left = _val, Right = new Value(expr[safeIndex+1], true), OrderLevel = orderLevel, OrderNumber = _list.Count });
                         i += 1;
                         if (CanLookAhead(i + 1, max_len))
                         {

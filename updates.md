@@ -240,3 +240,127 @@ Current test scripts that work with this build:
 - RepeatLoop.haggis
 - WhileLoop.haggis
 
+## Build 0.8 (10th August 2020)
+
+### "Its GUI time"
+
+- Turned flag algorithm into a usable function for portability
+
+- Fixed spelling for `INTEGER` `RECEIVE` errors (Was saying it was a `REAL`)
+
+- Fixed input fault which made any input blank
+
+- Added new argument `-input_output_only` to ignore any additional information
+
+- Changed waiting behaviour with newly added argument
+
+- Fixed `token parsing` problems when a `binary operator` is in play
+  
+  - If an binary operand (+, -, & etc) is due to be added, it will add the empty space one place ahead of itself, this caused issues with concatenation
+  
+- Fixed `ComparisonBlock` logic with errors preventing the `Binary Operations` to be assigned
+
+- Fixed issue with `Comparsion` logic with a not operator `!=` is in play
+  - It only allowed the `NOT` pseudo-function wrapper
+  - Added `<>` as a valid `NOT` operator
+  
+- Improved arguments behaviour with dash parameters ( ```-<param>``` )
+
+- Added `Socket` Server to communicate between the GUI and the program
+
+  - Added the following arguments:
+
+    - `-socket`
+      - Tells the Interpreter that a socket server will be in use, ports it manually to `127.0.0.1` at port `595` as `TCP` ( ` 'Haggis'` in ascii sum is: 595 )
+    - `-socket-ip`
+      - Tells the Interpreter to ignore default `IP Address` and use the one inputted
+    - `-socket-port`
+      - Tells the Interpreter to ignore default `End Point Port` and use the one inputted
+
+  - The server communicates with the following events:
+
+    - > Event structure: [<event fired>] < Data separated with pipeline delimiter |  >
+
+    - `time`  (Parse data into `double[3] ` from `string[3]` )
+
+      - Returns `<time in minutes>|<time in seconds>|<time in miliseconds>`
+
+      - > You'll need to covert it to a double from string and use Math Floor to round down the minutes as it can go to weird exponents like +E13 etc
+        >
+        > Gets called on script finish - Either on complete or error
+
+    - `variable_decl`
+
+      - Returns `<variable name>|<variable value>`
+
+      - > Gets called when ever a variable is created from SET or DECLEAR call
+
+    - `variable_inpt`
+
+      - Returns `<variable name>|<variable input value>`
+
+      - > Gets called when RECEIVE is called, returns it's declared name and its input value
+    
+    - `i_server`
+    
+      - Returns `<ip>|<port>|<protocol>`
+    
+      - > Gets Called before `time` to let the `REPL` know the server's information before connection closes
+
+- Added support for parameter less function/procedure calls
+
+- Improved logic for pseudocode functions
+
+- Introduced date pseudocode functions
+
+  - `DAY`, `MONTH`, `YEAR`, `HOURS`, `MINUTES`, `SECONDS`, `"MILISECONDS"`
+
+  - > All functions here are parameterless: ```DAY()```
+
+- Fixed spelling issue with default variable key `CHARACTER` which was mistakenly declared being `CHAR`
+
+- Added support for `PROCEDURE` & `FUNCTION`
+
+  - You can either `explicity` or `anonymously` call a function
+
+  - > Explicit: SET < variable > TO < function >
+    >
+    > Anonymously: SEND < function > TO DISPLAY (Function with no given value assignment)
+    >
+    > Anonymously could be just calling the function as it is, without printing to result back
+
+- Added feature when declaring a `FUNCTION` without a `RETURN` to suggest to change it into a `PROCEDURE` instead
+
+- Fixed `Tokenization` issue with negative numbers
+
+- Fixed issue with arguments (Due to `,`'s )
+
+- Fixed issue with arguments which contains inner brackets
+
+- Added conversion pseudocode functions
+
+  - `INT`,  `REAL`
+  
+- Fixed interpreter from shouting on reassignment (Logic check called too soon)
+
+- Fixed issue on key value call when it's empty (Searching in a empty `Dictionary`)
+
+- Fixed multiple out of index exceptions with `Tokenization`
+
+- Fixed issue with `IF` statement on `FALSE` ignoring all the lines if there is no `ELSE IF` clause (if any)
+
+- Added `#DEBUG` flag to support `BOOLEAN`
+
+- Moved `Tokenization` of `quotes logic` to a separate function due to `condition complexities with logic`
+
+- Made `OrderLevel` changing more safer to lower levels
+
+- Fixed issue with `ConditionBlock` for not assigning the correct right operand 
+
+- Fixed issue with `FUNCTION` & `PROCEDURE` calling error ( No return was in place if it was executed well )
+
+- Fixed Argument Parsing Issues
+
+
+
+> All examples in the "example" folder has been tested and passed! :)

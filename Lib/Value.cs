@@ -27,6 +27,7 @@ namespace HaggisInterpreter2
         public bool BOOLEAN { get; set; }
         public string STRING { get; set; }
         public char CHARACTER { get; set; }
+        public string OTHER { get; set; }
 
         #endregion Data types
 

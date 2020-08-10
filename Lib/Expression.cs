@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 
 namespace HaggisInterpreter2
@@ -68,19 +69,15 @@ namespace HaggisInterpreter2
                             output.Add(sb.ToString());
                             sb.Clear();
                         }
-                        continue;
+
+                        if(iter[i-1] != '"' || (iter[i] == '&' || iter[i+1] == '&'))
+                           continue;
                     }
 
-                    if ((int)iter[i] == 34)
+                    if ((int)iter[i] == 34 || (int)iter[i] == 39)
                     {
                         i++;
-                        while ((int)iter[i] != 34)
-                        {
-                            sb.Append(iter[i]);
-                            i++;
-                        }
-                        output.Add(sb.ToString());
-                        sb.Clear();
+                        output.Add(BuildQuote(iter, ref i, ((int)iter[i-1] == 34) ?'"':'\''));
                         continue;
                     }
                     else
@@ -105,7 +102,73 @@ namespace HaggisInterpreter2
                             }
                         }
                         else
-                            sb.Append(iter[i]);
+                        {
+                            if (validOperations.Contains(iter[i]))
+                            {
+                                bool ignoreNegative = false;
+
+                                // If not the end of the array
+                                if((i + 1) < iter.Length - 1) { if(iter[i] == '-' && !char.IsDigit(iter[i + 1])) { ignoreNegative = true; } }
+
+                                // Deal with numbers with negative sign
+                                if (iter[i] == '-' && !ignoreNegative)
+                                {
+                                    if (sb.Length > 0)
+                                        output.Add(sb.ToString());
+                                    sb.Clear();
+                                    sb.Append(iter[i]);
+                                    i++;
+                                    while (i < (iter.Length - 1))
+                                    {
+                                        if (char.IsDigit(iter[i]) || iter[i] == '.')
+                                        { sb.Append(iter[i]); }
+                                        i++;
+                                    }
+
+                                    if (sb.ToString() == "-")
+                                    {
+                                        if (iter[i - 1] == ' ') 
+                                        {
+                                            output.Add(sb.ToString());
+                                            output.Add(iter[i].ToString());
+                                        }
+                                        else 
+                                        { 
+                                            sb.Append(iter[i]);
+                                            output.Add(sb.ToString());
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (sb.Length > 0)
+                                            output.Add(sb.ToString());
+                                        output.Add(iter[i].ToString());
+                                    }
+
+                                    sb.Clear();
+                                }
+                                else
+                                {
+                                    if (sb.Length > 0)
+                                        output.Add(sb.ToString());
+
+                                    output.Add(iter[i].ToString());
+                                    sb.Clear();
+                                }
+                            }
+                            else
+                            {
+                                // There is a chance that a ',' could be here
+                                if(iter[i] == ',')
+                                {
+                                    if (sb.Length > 0)
+                                        output.Add(sb.ToString());
+                                    sb.Clear();
+                                }
+
+                                sb.Append(iter[i]);
+                            }
+                        }
                     }
                 }
 
@@ -126,6 +189,21 @@ namespace HaggisInterpreter2
             }
 
             return output.ToArray();
+        }
+
+        private static string BuildQuote(char[] text, ref int currentIndex, char QuoteChar = '"')
+        {
+            var sb = new StringBuilder();
+            while (currentIndex < (text.Length - 1 ))
+            {
+                if (text[currentIndex] != QuoteChar)
+                    sb.Append(text[currentIndex]);
+                else
+                    break;
+
+                currentIndex++;
+            }
+            return sb.ToString();
         }
 
         private static Value DoExpr(Value l, string op, Value r)
@@ -272,13 +350,40 @@ namespace HaggisInterpreter2
 
         #region Expression Operations
 
-        public static Value PerformExpression(Dictionary<string, Value> vals, string expression)
+        private static string[] StringGapFix(string[] target)
         {
+            var newarr = new List<string>(2);
+            var sb = new StringBuilder();
+            for (int i = 0; i < target.Length; i++)
+            {
+                if (target[i].Length != 0) 
+                {
+                    if (sb.Length > 0)
+                    { newarr.Add(sb.ToString()); sb.Clear(); }
 
+                    newarr.Add(target[i]); continue; 
+                }
+
+                if (target[i].Length == 0)
+                    sb.Append(' ');
+            }
+
+            sb = null;
+            return newarr.ToArray();
+        }
+
+        public static Value PerformExpression(Dictionary<string, Value> vals, string expression, bool alreadyEvaluated = false)
+        {
+            //TODO: FIX EMPTY SPACES IN TEXT STRING
             bool notWrapper = false;
-            string[] exp = Evaluate(expression.ToString());
 
-            if(expression.StartsWith("NOT"))
+            string[] exp;
+            if (alreadyEvaluated)
+                exp = expression.Split();
+            else
+                exp = Evaluate(expression.ToString());
+
+            if (expression.StartsWith("NOT"))
             {
                 notWrapper = true;
                 var new_exp = exp.ToList();
@@ -290,6 +395,9 @@ namespace HaggisInterpreter2
                 exp = new_exp.ToArray();
                 new_exp = null;
             }
+
+            // Any gaps left in a string causes issues - Lets resolve that.
+            if(exp.Any(g => g.Length == 0)) { exp = StringGapFix(exp); }
 
             List<IBlock> blocks = BlockParser.GenerateBlocks(exp, vals);
 
@@ -335,6 +443,11 @@ namespace HaggisInterpreter2
                                      
                     if (string.IsNullOrEmpty(lvlList[HighestIndex - 1].BinaryOp))
                     {
+                        if(lvlList[HighestIndex - 1].BinaryOp == null && (lvlList[HighestIndex].BinaryOp != null && lvlList[HighestIndex].blockType == BlockType.Text))
+                        {
+                            lvlList[HighestIndex - 1].BinaryOp = lvlList[HighestIndex].BinaryOp;
+                        }
+                        else
                         if(lvlList[0].blockType == BlockType.BinOp )
                         {
                             // We need to fix the order, The newest value (Highest index needs to be on top, at index 0)
@@ -355,7 +468,7 @@ namespace HaggisInterpreter2
 
                     // Handle if there is an BinOP by itself
                     int location;
-
+                    bool locForceBreak = false;
                     while(lvlList.Any(item => item.blockType == BlockType.BinOp))
                     {
                         location = lvlList.FindIndex(item => item.blockType == BlockType.BinOp);
@@ -379,7 +492,7 @@ namespace HaggisInterpreter2
                             if (GetBlockType(lvlList[location + 1]) == "Function")
                                 _right = FuncEval(lvlList[location + 1], false, vals);
                             else
-                                _right = (vals.ContainsKey(lvlList[location + 1].Value.ToString())) ? vals[lvlList[location + 1].ToString()] : lvlList[location + 1].Value;
+                                _right = (vals.ContainsKey(lvlList[location + 1].Value.ToString())) ? vals[lvlList[location + 1].Value.ToString()] : lvlList[location + 1].Value;
 
                             lvlList.RemoveAt(location + 1);
                             lvlList.RemoveAt(location);
@@ -390,11 +503,32 @@ namespace HaggisInterpreter2
                         }
                         else
                         {
-                            throw new Exception("Unable to modify block to suit BinOP Block");
-                        }
+                            if(!lvlList.Any(z => z.blockType == BlockType.BinOp) && lvlList.Count > 2)
+                                throw new Exception("Unable to modify block to suit BinOP Block");
 
+                            //Send the op and text to a lower level
+                            var bin_op = lvlList.First(l => l.blockType == BlockType.BinOp);
+                            var b = lvlList.First(l => l.blockType == BlockType.Text || l.blockType == BlockType.Literal);
+
+                            b.BinaryOp = bin_op.BinaryOp;
+
+                            int fixed_order = (bin_op.OrderNumber < b.OrderNumber) ? bin_op.OrderNumber : b.OrderNumber;
+                            b.OrderNumber = fixed_order;
+                            b.OrderLevel -= 1;
+                            lvlList.RemoveAt(1);
+                            lvlList.RemoveAt(0);
+
+                            int newsortedLevel = (currentLevel - 1 > 0) ? currentLevel - 1 : 0;
+
+                            sortedLevel[newsortedLevel].Add(b);
+
+                            locForceBreak = true;
+                            break;
+                        }
                     }
 
+                    if (locForceBreak)
+                        continue;
 
                     // Cache the valve(s) for better performance
                     Value left = Value.Zero;
@@ -442,8 +576,9 @@ namespace HaggisInterpreter2
                             FuncBlock fb = lvlList[HighestIndex] as FuncBlock;
 
                             //TODO: ID array of args (Only single args at the moment)
-                            string args;
+                            string args = "";
 
+                            if(!(fb.Args is null))
                             if (fb.Args.Length == 1)
                             {
                                 args = fb.Args[0];
@@ -529,11 +664,12 @@ namespace HaggisInterpreter2
                         }
 
                         // Move up the data type to allow doubles with floats not to be assigned "0"
-                        if (left.Type == ValueType.INTEGER)
+                                           
+                        /*if (left.Type == ValueType.INTEGER)
                             left = left.Convert(ValueType.REAL);
 
                         if (right.Type == ValueType.INTEGER)
-                            right = right.Convert(ValueType.REAL);
+                            right = right.Convert(ValueType.REAL);*/
 
                         eval = DoExpr(left, op, right);
 
@@ -559,9 +695,11 @@ namespace HaggisInterpreter2
                             sortedLevel[currentLevel - 1].Add(new Block { Value = eval, OrderNumber = orginalOrder, OrderLevel = newLevel, BinaryOp = String.Empty, blockType = BlockType.Literal});
                             continue;
                         }
-                        
+
                         // Ammend it as there are still some more operations to do
-                        sortedLevel[currentLevel].Add(new Block { Value = eval, OrderNumber = orginalOrder, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
+                        
+                        //sortedLevel[currentLevel] ?? Relook this part?!
+                        lvlList.Add(new Block { Value = eval, OrderNumber = orginalOrder, OrderLevel = currentLevel, BinaryOp = String.Empty, blockType = BlockType.Literal });
                         HighestIndex = lvlList.Count - 1;
                     }
                 }
@@ -569,199 +707,30 @@ namespace HaggisInterpreter2
 
             if (GetBlockType(blocks[0]) == "Condition")
             {
+                var b = blocks[0] as ConditionBlock;
+                bool notOperater = (b.CompareOp == "!=" || b.CompareOp == "<>");
+
+                if (!notWrapper && notOperater)
+                    notWrapper = true;
+
                 return CondEval(blocks[0], notWrapper, vals);
             }
             else if (GetBlockType(blocks[0]) == "Function")
             {
-                return FuncEval(blocks[0], notWrapper, vals);
-            }
-            else
-                return blocks[0].Value;
-           
-            #region OLD CODE (Stack & Queue Based)
-            /*
-            var stack = new Stack(exp.Length + 4);
-
-            bool anyBrackets = exp.Any(x => x.StartsWith("("));
-            bool mutlipleQuery = exp.Any(y => y == "AND" || y == "OR");
-
-
-            if (anyBrackets)
-            {
-                //TODO: What if '(' or ')' is in the string/quote?
-                int lBrackets = 0;
-                int rBrackets = 0;
-
-                foreach (var item in exp)
+                var fn = blocks[0] as FuncBlock;
+                if (isPreDefined(fn.FunctionName))
                 {
-                    if (item == "(")
-                    { lBrackets++; continue; }
-
-                    if (item == ")")
-                    { rBrackets++; continue; }
-                }
-
-                if (lBrackets != rBrackets)
-                    throw new Exception($"Missing or Unbalanced Brackets: [(] {lBrackets} [)] {rBrackets}");
-            }
-
-            // Populate the stack
-            if (!anyBrackets)
-            {
-                foreach (var item in exp)
-                    stack.Push(item);
-            }
-            else
-            {
-                // We need to deal with this as brackets have to be calculate before hand
-                var queueOp = new Queue();
-                var expr_final = expression;
-                int HighestOrder = 0;
-                int HighestOrderEnd = 0;
-                string newExp = string.Empty;
-                while (true)
-                {
-                    HighestOrder = expr_final.LastIndexOf("(");
-
-                    if (HighestOrder == -1)
-                        break;
-
-                    HighestOrderEnd = expr_final.IndexOf(")", HighestOrder);
-
-                    newExp = expr_final.Substring(HighestOrder + 1, (HighestOrderEnd - HighestOrder) - 1);
-                    queueOp.Enqueue(newExp);
-                    expr_final = expr_final.Replace($"({newExp})", $"`{queueOp.Count - 1}`");
-                    newExp = string.Empty;
-                    HighestOrder = 0;
-                    HighestOrderEnd = 0;
-                }
-
-                queueOp.Enqueue(expr_final);
-                expr_final = null; newExp = null;
-
-                string expr;
-                string[] _exp;
-                var refIndex = new Dictionary<string, Value>(2);
-                var personalStack = new Stack();
-                while (queueOp.Count >= 1)
-                {
-                    expr = queueOp.Dequeue() as string;
-                    _exp = Expression.Evaluate(expr);
-
-                    foreach (var pStack in _exp)
-                    {
-                        if (pStack.Contains("`"))
-                        {
-                            personalStack.Push(refIndex[pStack]);
-                        }
-                        else
-                            personalStack.Push(pStack);
-                    }
-
-                    if (personalStack.Count == 1)
-                    {
-                        //TODO: Evaluate if this method is robust enough?
-
-                        if (anyBrackets && exp.Any(a => validFunctions.Contains(a)))
-                        {
-                            var func = FindFunc(exp);
-
-                            var f_expr = expression.Substring(func.Item2);
-                            f_expr = f_expr.Substring(0, f_expr.LastIndexOf(")"));
-                            var result = FuncExtensions(func.Item1, f_expr, vals);
-
-                            return result;
-                        }
-
-
-                        return new Value(personalStack.Pop() as string, true);
-                    }
-
-                    var _e = GetOperands(ref personalStack, ref vals);
-
-                    // For the best results, convert INT to Double
-                    Value lNum = _e.Item1;
-                    Value rNum = _e.Item3;
-
-                    if (lNum.Type == ValueType.INTEGER)
-                        lNum = lNum.Convert(ValueType.REAL);
-
-                    if (rNum.Type == ValueType.INTEGER)
-                        rNum = rNum.Convert(ValueType.REAL);
-
-                    Value _e_result = DoExpr(lNum, _e.Item2, rNum);
-
-                    if (queueOp.Count != 0)
-                    {
-                        var isNot = queueOp.Peek() as string;
-
-                        if (isNot.StartsWith("NOT"))
-                        {
-                            // Perform a switch (True becomes false, False becomes true)
-                            _e_result.BOOLEAN = !_e_result.BOOLEAN;
-                            queueOp.Dequeue();
-                        }
-                    }
-                    if (queueOp.Count == 0)
-                    {
-                        refIndex = null; personalStack = null; _exp = null; expr = null;
-                        return _e_result;
-                    }
-
-                    refIndex.Add($"`{refIndex.Count}`", _e_result);
-                }
-            }
-
-            bool runCycle = false;
-
-            while (stack.Count > 0)
-            {
-                if (stack.Count == 1)
-                {
-                    if (runCycle)
-                        break;
-                    else
-                    {
-                        var singleObject = stack.Pop();
-                        if (vals.ContainsKey(singleObject.ToString()))
-                            singleObject = vals[singleObject.ToString()];
-                        else
-                            singleObject = new Value(singleObject as string, true);
-
-                        stack.Push(singleObject);
-                        runCycle = true;
-                        continue;
-                    }
-                }
-
-                Value eval = new Value();
-
-                if (mutlipleQuery)
-                {
-                    var operandsL = GetOperands(ref stack, ref vals);
-                    var oper = stack.Pop() as string;
-                    var operandsR = GetOperands(ref stack, ref vals);
-
-                    var l = DoExpr(operandsL.Item1, operandsL.Item2, operandsL.Item3);
-                    var r = DoExpr(operandsR.Item1, operandsR.Item2, operandsR.Item3);
-
-                    eval = DoExpr(l, oper, r);
+                    var result = PreDefinedFunctions(fn.FunctionName, expression, vals);
+                    return result;
                 }
                 else
-                {
-                    var operands = GetOperands(ref stack, ref vals);
-                    eval = DoExpr(operands.Item1, operands.Item2, operands.Item3);
-                }
-
-                stack.Push(eval);
-                runCycle = true;
+                    return FuncEval(blocks[0], notWrapper, vals);
             }
-
-            return (Value)stack.Pop();*/
-            #endregion
-
+            else
+                return blocks[0].Value;         
         }
 
+        #region Block Evaluations
         private static string GetBlockType(IBlock block)
         {
             return block.GetType().Name switch
@@ -774,28 +743,117 @@ namespace HaggisInterpreter2
 
         private static Value FuncEval(IBlock block, bool isNotOperator, Dictionary<string, Value> vals)
         {
+
             FuncBlock fb = block as FuncBlock;
+            FuncMetaData meta;
+            bool isOverride = false;
 
-            //TODO: ID array of args (Only single args at the moment)
-            string args;
-
-            if (fb.Args.Length == 1)
+            if(isPreDefined(fb.FunctionName))
             {
-                args = fb.Args[0];
-                args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
+                var result = PreDefinedFunctions(fb.FunctionName, string.Join(",", fb.Args), vals);
+
+                if (ReferenceEquals(result, Value.Zero))
+                {
+                    throw new Exception($"Problem identifying the follow pseudo function: {fb.FunctionName}\nHere are the list of them: {string.Join(", ", availableFunctions)}");
+                }
+
+                return result;
             }
-            else
+
+            try
             {
-                //args = string.Join(",", fb.Args);
-                throw new Exception("Multiple arguments aren't supported in this current build - Please wait till this gets optimised!");
+                meta = availableFunctions.First(x => x.Name == fb.FunctionName);
+                isOverride = availableFunctions.Count(x => x.Name == fb.FunctionName) > 1;
+            }
+            catch (Exception)
+            {
+                meta = Interpreter.function.FirstOrDefault(x => x.Key.Name == fb.FunctionName).Key;
+
+                if(meta.Name is null && meta.ArgTypes is null && meta.ArgValues is null)
+                    Interpreter.Error($"ERROR FINDING {fb.FunctionName} - Either no declared, spelled wrong or is called before declaration", fb.FunctionName);
+            }
+
+            //TODO: FIXED EXPRESSIONS IN ARRAY
+            string args = null;
+
+            if(!(fb.Args is null))
+            {
+                if (!(meta.ArgValues is null))
+                    if (fb.Args.Length != meta.ArgValues.Count())
+                        Interpreter.Error($"NON-MATCHING PARAMETERS, EXPECTED {meta.ArgValues.Count()} BUT GOT {fb.Args.Length} INSTEAD", meta.Name);
+
+                if (fb.Args.Length == 1)
+                {
+                    args = fb.Args[0];
+                    args = (vals.ContainsKey(args)) ? vals[args].ToString() : fb.Args[0];
+
+                    Value val;
+
+                    if (args.Split(' ').Any(c => validOperations.Contains(c[0]) || validComparisons.Contains(c)))
+                        val = PerformExpression(vals, args, true);
+                    else
+                        val = new Value(args, true);
+
+                    if (isOverride)
+                    {
+                        try
+                        {
+                            meta = availableFunctions.First(x => x.Name == fb.FunctionName && x.ArgTypes[0] == val.Type.ToString());
+                        }
+                        catch (Exception)
+                        {
+                            Interpreter.Error($"THIS FUNCTION DOESN'T HAVE AN OVERRIDE AVAILABLE FOR THE DATA TYPE '{meta.ArgTypes[0]}' FOR {fb.FunctionName}", val.ToString());
+                        }
+                    }
+
+                    if (val.Type.ToString() != meta.ArgTypes[0])
+                        Interpreter.Error($"WRONG PARAMETER DATA TYPE OF {meta.ArgTypes[0]}, EXCEPTED {val.Type} FOR {fb.FunctionName}", val.ToString());
+
+                    if (!(meta.ArgValues is null))
+                    { 
+                        var k = meta.ArgValues.Keys.ToArray();
+
+                        meta.ArgValues[k[0]] = val;
+                    }
+
+                    var _k = Interpreter.function.FirstOrDefault(z => z.Key.Name == fb.FunctionName).Key;
+                    var _v = Interpreter.function.FirstOrDefault(z => z.Key.Name == fb.FunctionName).Value;
+                    Interpreter.function.Remove(_k);
+                    Interpreter.function.Add(_k, _v);
+
+                    return new Value { OTHER = $"FN-{fb.FunctionName}" };
+                }
+                else
+                {
+                    var k = meta.ArgValues.Keys.ToArray();
+                    Value val;
+
+                    for (int i = 0; i < fb.Args.Length; i++)
+                    {
+                        val = new Value(vals.ContainsKey(fb.Args[i]) ? vals[fb.Args[i]].ToString() : fb.Args[i], true);
+
+                        if (meta.ArgTypes[i] != val.Type.ToString())
+                            Interpreter.Error($"WRONG PARAMETER DATA TYPE USED FOR {k[i]}, EXPECTED {meta.ArgTypes[i]}", fb.Args[i]);
+
+                        meta.ArgValues[k[i]] = val;
+                    }
+
+                    var _k = Interpreter.function.FirstOrDefault(z => z.Key.Name == fb.FunctionName).Key;
+                    var _v = Interpreter.function.FirstOrDefault(z => z.Key.Name == fb.FunctionName).Value;
+                    Interpreter.function.Remove(_k);
+                    Interpreter.function.Add(_k, _v);
+
+                    return new Value { OTHER=$"FN-{fb.FunctionName}" };
+                }
             }
 
             if (isNotOperator)
             {
+
                 Value eval = FuncExtensions(fb.FunctionName, args);
 
                 if (eval.Type != ValueType.BOOLEAN)
-                    throw new Exception($"Cannot use the NOT wrapper with {eval.Type}");
+                    Interpreter.Error($"Cannot use the NOT wrapper with {eval.Type} from function: {fb.FunctionName}", fb.FunctionName);
 
                 eval.BOOLEAN = !eval.BOOLEAN;
                 return eval;
@@ -835,33 +893,225 @@ namespace HaggisInterpreter2
 
             return DoExpr(cb.Left, cb.CompareOp, cb.Right);
         }
+        #endregion
 
+        #region Block Function Evaluations
+
+        private static FuncMetaData[] availableFunctions = new FuncMetaData[]
+        {
+            // STRING PSEUDOCODE FUNCTIONS
+            new FuncMetaData { Name = "Title", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+            new FuncMetaData { Name = "Trim", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+            new FuncMetaData { Name = "Upper", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+            new FuncMetaData { Name = "Lower", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+
+            // CONVERSION PSEUDOCODE FUNCTIONS (with overrides)
+            new FuncMetaData { Name = "INT", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+            new FuncMetaData { Name = "INT", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "REAL" } },
+            new FuncMetaData { Name = "INT", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "BOOLEAN" } },
+
+            new FuncMetaData { Name = "REAL", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "STRING" } },
+            new FuncMetaData { Name = "REAL", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "INTEGER" } },
+            new FuncMetaData { Name = "REAL", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[] { "BOOLEAN" } },
+
+            // DATE PSEUDOCODE FUNCTIONS
+            new FuncMetaData { Name = "DAY", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "MONTH", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "YEAR", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "HOURS", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "MINUTES", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "SECONDS", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]},
+            new FuncMetaData { Name = "MILISECONDS", type = FuncMetaData.Type.FUNCTION, ArgTypes = new string[0]}
+        };
+        private static bool isPreDefined(string subject) => availableFunctions.Any(e => e.Name == subject);
+        
         private static Value FuncExtensions(string function, string expression)
         {
-            //var exp = PerformExpression(vals, expression);
-
-            if (function == "Lower")
-                return new Value(expression.ToLower());
-            else if (function == "Upper")
-                return new Value(expression.ToUpper());
-            else if (function == "Trim")
-                return new Value(expression.Trim());
-            else if (function == "Title")
+            // Deal with Pseudo/Pre-Defined Function(s) first
+            if(isPreDefined(function))
             {
-                var text = expression.ToCharArray();
+                var result = PreDefinedFunctions(function, expression);
+
+                if(ReferenceEquals(result, Value.Zero))
+                {
+                    throw new Exception($"Problem identifying the follow pseudo function: {function}\nHere are the list of them: {string.Join(", ", availableFunctions)}");
+                }
+
+                return result;
+            }
+
+            return new Value();
+        }
+
+        private static Value PreDefinedFunctions(string fun, string ex, Dictionary<string,Value> val = null)
+        {
+            Value result = Value.Zero;
+
+            // Remove the function to prevent StackOverflowException (If any)
+
+            if (ex.Contains('(') || ex.Contains(')'))
+            {
+                int funcStart = ex.IndexOf('(') + 1;
+                int funcEnd = ex.LastIndexOf(')') - funcStart;
+                ex = ex.Substring(funcStart, funcEnd);
+            }
+
+            #region String functions
+            if (fun == "Lower" || fun == "Upper" || fun == "Trim")
+            {
+                result = PerformExpression(val, ex);
+
+                switch (fun)
+                {
+                    case "Lower":
+                        result.STRING = result.STRING.ToLower();
+                        break;
+
+                    case "Upper":
+                        result.STRING = result.STRING.ToUpper();
+                        break;
+
+                    case "Trim":
+                        result.STRING = result.STRING.Trim();
+                        break;
+                }
+            }
+            else if (fun == "Title")
+            {
+                var text = ex.ToCharArray();
                 // We force the first char to be Title automatically
                 text[0] = char.ToUpper(text[0]);
 
                 // If the character before the current character is whitespace, set the current char to upper
                 for (int i = 1; i < text.Length; i++)
-                    if(char.IsWhiteSpace(text[i - 1]))
+                    if (char.IsWhiteSpace(text[i - 1]))
                         text[i] = char.ToUpper(text[i]);
 
-                return new Value(String.Join("", text));
+                result = new Value(String.Join("", text));
             }
 
-            return new Value();
+            if(!result.Equals(Value.Zero))
+                return result;
+            #endregion
+
+            #region Date functions
+            if(new List<string> { "DAY", "MONTH", "YEAR", "HOURS", "MINUTES", "SECONDS", "MILISECONDS" }.Contains(fun))
+            {
+                var d = DateTime.Now;
+
+                switch (fun)
+                {
+                    case "DAY":
+                        result = new Value(d.Day);
+                        break;
+
+                    case "MONTH":
+                        result = new Value(d.Month);
+                        break;
+
+                    case "YEAR":
+                        result = new Value(d.Year);
+                        break;
+
+                    case "HOURS":
+                        result = new Value(d.Hour);
+                        break;
+
+                    case "MINUTES":
+                        result = new Value(d.Minute);
+                        break;
+
+                    case "SECONDS":
+                        result = new Value(d.Second);
+                        break;
+
+                    case "MILISECONDS":
+                        result = new Value(d.Millisecond);
+                        break;
+                }
+                if (!result.Equals(Value.Zero))
+                    return result;
+            }
+            #endregion
+
+            #region Type conversions
+            if(fun == "INT")
+            {
+                Value express = PerformExpression(val, ex);
+
+                if(!availableFunctions.Where(y => y.Name == "INT").Any(x => x.ArgTypes.Contains(express.Type.ToString())))
+                {
+                    Interpreter.Error("INT CANNOT SUPPORT THE GIVEN INPUT TO CONVERT TO INT", ex);
+                }
+
+                switch (express.Type)
+                {
+                    case ValueType.REAL:
+                        express = new Value(Convert.ToInt32(express.REAL));
+                        break;
+                    case ValueType.STRING:
+                        if(Int32.TryParse(express.ToString(), out int i))
+                        {
+                            express = new Value(i);
+                        }
+                        else
+                        {
+                            Interpreter.Error("INT CANNOT SUPPORT THE GIVEN STRING INPUT", ex);
+                        }
+                        break;
+                    case ValueType.BOOLEAN:
+                        express = new Value((express.BOOLEAN)?true:false);
+                        break;
+                    default:
+                        break;
+                }
+
+                return express;
+            }
+
+            if (fun == "REAL")
+            {
+                Value express = PerformExpression(val, ex);
+
+                // Fix the expression if it results back to REAL
+                if (express.Type == ValueType.REAL && express.REAL % 1 == 0)
+                    express = express.Convert(ValueType.INTEGER);
+
+                if (!availableFunctions.Where(y => y.Name == "REAL").Any(x => x.ArgTypes.Contains(express.Type.ToString())))
+                {
+                    Interpreter.Error("REAL CANNOT SUPPORT THE GIVEN INPUT TO CONVERT TO REAL", ex);
+                }
+
+                switch (express.Type)
+                {
+                    case ValueType.INTEGER:
+                        express = new Value(Convert.ToDouble(express.INT));
+                        break;
+                    case ValueType.STRING:
+                        if (Int32.TryParse(express.ToString(), out int i))
+                        {
+                            express = new Value(i);
+                        }
+                        else
+                        {
+                            Interpreter.Error("REAL CANNOT SUPPORT THE GIVEN STRING INPUT", ex);
+                        }
+                        break;
+                    case ValueType.BOOLEAN:
+                        express = new Value((express.BOOLEAN) ? 1.0 : 0.0);
+                        break;
+                    default:
+                        break;
+                }
+
+                return express;
+            }
+            #endregion
+
+            return result;
         }
+
+        #endregion
 
         #endregion Expression Operations
     }

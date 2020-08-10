@@ -20,7 +20,7 @@ END IF
 # Test 3: 2 comparisons
 
 SEND "temperature was: " & temperature & " and will now be set to: 7" TO DISPLAY
-SET temperature TO 7.0
+SET temperature TO 7
 
 IF temperature > 10.0 AND temperature < 40.0 THEN
 	SEND "temperature is between 10c and 40c" TO DISPLAY
