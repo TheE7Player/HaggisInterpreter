@@ -313,9 +313,9 @@ Current test scripts that work with this build:
 
 - Introduced date pseudocode functions
 
-  - `DAY`, `MONTH`, `YEAR`, `HOURS`, `MINUTES`, `SECONDS`, `"MILISECONDS"`
+  - `DAY`, `MONTH`, `YEAR`, `HOURS`, `MINUTES`, `SECONDS`, `MILISECONDS`
 
-  - > All functions here are parameterless: ```DAY()```
+  - > All functions here are parameterless: `DAY()`, `HOURS()`, `MILISECONDS()` etc
 
 - Fixed spelling issue with default variable key `CHARACTER` which was mistakenly declared being `CHAR`
 
@@ -343,7 +343,7 @@ Current test scripts that work with this build:
   
 - Fixed interpreter from shouting on reassignment (Logic check called too soon)
 
-- Fixed issue on key value call when it's empty (Searching in a empty `Dictionary`)
+- Fixed issue on key value call when it's empty (Searching empty `Dictionary`)
 
 - Fixed multiple out of index exceptions with `Tokenization`
 
