@@ -399,7 +399,7 @@ Current test scripts that work with this build:
 
   > You need to have spacing in between the comments or it will have a bad time...
 
-- Fixed serious law with `GetNextLine`
+- Fixed serious flaw with `GetNextLine`
 
 - Fixed issue with `FUNCTION` `RETURN` not working
 
