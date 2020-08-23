@@ -1,4 +1,4 @@
-# SimpleMath.haggis by James G.
+# SimpleMath.haggis by James G. :)
 
 FUNCTION ABS (REAL val) RETURNS REAL
 	

@@ -364,3 +364,43 @@ Current test scripts that work with this build:
 
 
 > All examples in the "example" folder has been tested and passed! :)
+
+## Build 0.9.1 (13th August 2020)
+
+> Private build 0.9 included:
+>
+> - Added argument `-get-interpreter-version` for GUI program to identify what version the exe would be running
+>   - GUI is coming soon - don't worry :)
+
+- Added support for `>=` and `<=` binary operands that were never implemented
+- Fixed problems with same line being called twice for `PROCEDURES` & `FUNCTIONS`
+  - This was because IF statements etc move the index, which meant even if a statement moves the line further, the iteration will set it back to the last reoccurring line
+- Added more socket communication instructions
+  - `i_version`
+    - Tells the GUI what version of the interpreter was running
+  - `i_arguments`
+    - Tells the GUI what arguments were passed through
+
+## Build 0.9.3 (23rd August 2020)
+
+### "A Stronger Stronghold"
+
+> 0.9.2 is minor update for 0.9.1 which handle problems, but that didn't stop it from *really* preventing them. Sad times.
+
+- Fixed serious issues with `IF STATEMENTS`
+
+  - Introduced `StatementBlock` to deal with faults from 0.9.2 downwards
+
+- Fixed further more issues with `IF STATEMENTS` `EXPRESSIONS`
+
+  > This doesn't mean there ain't any - They are always hiding in the bush!! I know your there lil' bug!
+
+- Implemented Python Style Multi-Comments ( `###` )
+
+  > You need to have spacing in between the comments or it will have a bad time...
+
+- Fixed serious law with `GetNextLine`
+
+- Fixed issue with `FUNCTION` `RETURN` not working
+
+- And many other various bug fixes, I ain't gonna tell more because I know those lil' bugs are here!
